@@ -157,7 +157,6 @@ nsFrameLoader::nsFrameLoader(Element* aOwner, bool aNetworkCreated)
   , mChildID(0)
   , mEventMode(EVENT_MODE_NORMAL_DISPATCH)
 {
-  ResetPermissionManagerStatus();
 }
 
 nsFrameLoader::~nsFrameLoader()
@@ -232,7 +231,7 @@ nsFrameLoader::LoadFrame()
   if (NS_SUCCEEDED(rv)) {
     rv = LoadURI(uri);
   }
-  
+
   if (NS_FAILED(rv)) {
     FireErrorEvent();
 
@@ -291,7 +290,7 @@ nsFrameLoader::ReallyStartLoading()
   if (NS_FAILED(rv)) {
     FireErrorEvent();
   }
-  
+
   return rv;
 }
 
@@ -350,7 +349,7 @@ nsFrameLoader::ReallyStartLoadingInternal()
 
     // FIXME get error codes from child
     mRemoteBrowser->LoadURL(mURIToLoad);
-    
+
     if (!mRemoteBrowserShown && !ShowRemoteFrame(ScreenIntSize(0, 0))) {
       NS_WARNING("[nsFrameLoader] ReallyStartLoadingInternal tried but couldn't show remote browser.\n");
     }
@@ -379,7 +378,7 @@ nsFrameLoader::ReallyStartLoadingInternal()
   loadInfo->SetOwner(mOwnerContent->NodePrincipal());
 
   nsCOMPtr<nsIURI> referrer;
-  
+
   nsAutoString srcdoc;
   bool isSrcdoc = mOwnerContent->IsHTMLElement(nsGkAtoms::iframe) &&
                   mOwnerContent->GetAttr(kNameSpaceID_None, nsGkAtoms::srcdoc,
@@ -430,6 +429,9 @@ nsFrameLoader::ReallyStartLoadingInternal()
   mNeedsAsyncDestroy = tmpState;
   mURIToLoad = nullptr;
   NS_ENSURE_SUCCESS(rv, rv);
+
+  // Track the appId's reference count if this frame is in-process
+  ResetPermissionManagerStatus();
 
   return NS_OK;
 }
@@ -594,7 +596,7 @@ nsFrameLoader::AddTreeItemToTreeOwner(nsIDocShellTreeItem* aItem,
 {
   NS_PRECONDITION(aItem, "Must have docshell treeitem");
   NS_PRECONDITION(mOwnerContent, "Must have owning content");
-  
+
   nsAutoString value;
   bool isContent = false;
   mOwnerContent->GetAttr(kNameSpaceID_None, TypeAttrName(), value);
@@ -1112,7 +1114,7 @@ nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
        !AllDescendantsOfType(otherDocshell, otherType))) {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
-  
+
   // Save off the tree owners, frame elements, chrome event handlers, and
   // docshell and document parents before doing anything else.
   nsCOMPtr<nsIDocShellTreeOwner> ourOwner, otherOwner;
@@ -1203,7 +1205,7 @@ nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
   FirePageShowEvent(otherDocshell, otherEventTarget, false);
   FirePageHideEvent(ourDocshell, ourEventTarget);
   FirePageHideEvent(otherDocshell, otherEventTarget);
-  
+
   nsIFrame* ourFrame = ourContent->GetPrimaryFrame();
   nsIFrame* otherFrame = otherContent->GetPrimaryFrame();
   if (!ourFrame || !otherFrame) {
@@ -1238,7 +1240,7 @@ nsFrameLoader::SwapWithOtherLoader(nsFrameLoader* aOther,
     ourOwner->ContentShellRemoved(ourDocshell);
     otherOwner->ContentShellRemoved(otherDocshell);
   }
-  
+
   ourParentItem->AddChild(otherDocshell);
   otherParentItem->AddChild(ourDocshell);
 
@@ -1962,7 +1964,7 @@ nsFrameLoader::CheckForRecursiveLoad(nsIURI* aURI)
   NS_WARN_IF_FALSE(treeOwner,
                    "Trying to load a new url to a docshell without owner!");
   NS_ENSURE_STATE(treeOwner);
-  
+
   if (mDocShell->ItemType() != nsIDocShellTreeItem::typeContent) {
     // No need to do recursion-protection here XXXbz why not??  Do we really
     // trust people not to screw up with non-content docshells?
@@ -1976,7 +1978,7 @@ nsFrameLoader::CheckForRecursiveLoad(nsIURI* aURI)
   int32_t depth = 0;
   while (parentAsItem) {
     ++depth;
-    
+
     if (depth >= MAX_DEPTH_CONTENT_FRAMES) {
       mDepthTooGreat = true;
       NS_WARNING("Too many nested content frames so giving up");
@@ -2017,7 +2019,7 @@ nsFrameLoader::CheckForRecursiveLoad(nsIURI* aURI)
         bool equal;
         rv = aURI->EqualsExceptRef(parentURI, &equal);
         NS_ENSURE_SUCCESS(rv, rv);
-        
+
         if (equal) {
           matchCount++;
           if (matchCount >= MAX_SAME_URL_CONTENT_FRAMES) {
@@ -2720,9 +2722,9 @@ nsFrameLoader::AttributeChanged(nsIDocument* aDocument,
 void
 nsFrameLoader::ResetPermissionManagerStatus()
 {
-  // The resetting of the permissions status can run only
-  // in the main process.
-  if (XRE_GetProcessType() == GeckoProcessType_Content) {
+  // only in-main-process && in-process frame is handled here and all other
+  // cases are handled by ContentParent.
+  if (XRE_GetProcessType() == GeckoProcessType_Content || mRemoteFrame) {
     return;
   }
 
