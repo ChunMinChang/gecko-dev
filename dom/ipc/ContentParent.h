@@ -218,6 +218,9 @@ public:
     static void
     DeallocateTabId(const TabId& aTabId, const ContentParentId& aCpId);
 
+    static bool
+    GetBrowserConfiguration(const nsCString& aURI, BrowserConfiguration& aConfig);
+
     void ReportChildAlreadyBlocked();
     bool RequestRunToCompletion();
 
@@ -839,6 +842,9 @@ private:
 
     virtual bool RecvUpdateDropEffect(const uint32_t& aDragAction,
                                       const uint32_t& aDropEffect) override;
+
+    virtual bool RecvGetBrowserConfiguration(const nsCString& aURI, BrowserConfiguration* aConfig) override;
+
     // If you add strong pointers to cycle collected objects here, be sure to
     // release these objects in ShutDownProcess.  See the comment there for more
     // details.
