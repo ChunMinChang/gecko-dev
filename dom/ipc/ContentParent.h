@@ -203,7 +203,7 @@ public:
     /** Notify that a tab is beginning its destruction sequence. */
     void NotifyTabDestroying(PBrowserParent* aTab);
     /** Notify that a tab was destroyed during normal operation. */
-    void NotifyTabDestroyed(PBrowserParent* aTab,
+    void NotifyTabDestroyed(const TabId& aTabId,
                             bool aNotifiedDestroying);
 
     TestShellParent* CreateTestShell();
@@ -217,6 +217,18 @@ public:
                   const ContentParentId& aCpId);
     static void
     DeallocateTabId(const TabId& aTabId, const ContentParentId& aCpId);
+
+    /*
+     * Add the appId's reference count by the given ContentParentId and TabId
+     */
+    static bool
+    PermissionManagerAddref(const ContentParentId& aCpId, const TabId& aTabId);
+
+    /*
+     * Release the appId's reference count by the given ContentParentId and TabId
+     */
+    static bool
+    PermissionManagerRelease(const ContentParentId& aCpId, const TabId& aTabId);
 
     static bool
     GetBrowserConfiguration(const nsCString& aURI, BrowserConfiguration& aConfig);
@@ -349,7 +361,8 @@ public:
                                    const ContentParentId& aCpId,
                                    TabId* aTabId) override;
 
-    virtual bool RecvDeallocateTabId(const TabId& aTabId) override;
+    virtual bool RecvDeallocateTabId(const TabId& aTabId,
+                                     const ContentParentId& aCpId) override;
 
     nsTArray<TabContext> GetManagedTabContext();
 

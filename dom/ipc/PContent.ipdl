@@ -928,7 +928,7 @@ parent:
      */
     sync AllocateTabId(TabId openerTabId, IPCTabContext context, ContentParentId cpId)
         returns (TabId tabId);
-    async DeallocateTabId(TabId tabId);
+    async DeallocateTabId(TabId tabId, ContentParentId cpId);
 
     /**
      * Starts an offline application cache update.

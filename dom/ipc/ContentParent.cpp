@@ -2013,10 +2013,35 @@ ContentParent::ActorDestroy(ActorDestroyReason why)
     // least until after the current task finishes running.
     NS_DispatchToCurrentThread(new DelayedDeleteContentParentTask(this));
 
-    // Destroy any processes created by this ContentParent
+    // Release the appId's reference count of any processes
+    // created by this ContentParent and the frame opened by this ContentParent
+    // if this ContentParent crashes.
     ContentProcessManager *cpm = ContentProcessManager::GetSingleton();
     nsTArray<ContentParentId> childIDArray =
         cpm->GetAllChildProcessById(this->ChildID());
+    if (why == AbnormalShutdown) {
+      nsCOMPtr<nsIPermissionManager> permMgr = services::GetPermissionManager();
+      if(permMgr) {
+        // Release the appId's reference count of its child-processes
+        for (uint32_t i = 0; i < childIDArray.Length(); i++) {
+          nsTArray<TabContext> tabCtxs = cpm->GetTabContextByContentProcess(childIDArray[i]);
+          for (uint32_t j = 0 ; j < tabCtxs.Length() ; j++) {
+            if (tabCtxs[j].OwnOrContainingAppId() != nsIScriptSecurityManager::NO_APP_ID) {
+              permMgr->ReleaseAppId(tabCtxs[j].OwnOrContainingAppId());
+            }
+          }
+        }
+        // Release the appId's reference count belong to itself
+        nsTArray<TabContext> tCtxs = cpm->GetTabContextByContentProcess(mChildID);
+        for (uint32_t i = 0; i < tCtxs.Length() ; i++) {
+          if (tCtxs[i].OwnOrContainingAppId()!= nsIScriptSecurityManager::NO_APP_ID) {
+            permMgr->ReleaseAppId(tCtxs[i].OwnOrContainingAppId());
+          }
+        }
+      }
+    }
+
+    // Destroy any processes created by this ContentParent
     for(uint32_t i = 0; i < childIDArray.Length(); i++) {
         ContentParent* cp = cpm->GetContentProcessById(childIDArray[i]);
         MessageLoop::current()->PostTask(
@@ -2066,16 +2091,15 @@ ContentParent::StartForceKillTimer()
 }
 
 void
-ContentParent::NotifyTabDestroyed(PBrowserParent* aTab,
+ContentParent::NotifyTabDestroyed(const TabId& aTabId,
                                   bool aNotifiedDestroying)
 {
     if (aNotifiedDestroying) {
         --mNumDestroyingTabs;
     }
 
-    TabId id = static_cast<TabParent*>(aTab)->GetTabId();
     nsTArray<PContentPermissionRequestParent*> parentArray =
-        nsContentPermissionUtils::GetContentPermissionRequestParentById(id);
+        nsContentPermissionUtils::GetContentPermissionRequestParentById(aTabId);
 
     // Need to close undeleted ContentPermissionRequestParents before tab is closed.
     for (auto& permissionRequestParent : parentArray) {
@@ -2088,7 +2112,9 @@ ContentParent::NotifyTabDestroyed(PBrowserParent* aTab,
     // There can be more than one PBrowser for a given app process
     // because of popup windows.  When the last one closes, shut
     // us down.
-    if (ManagedPBrowserParent().Length() == 1) {
+    ContentProcessManager *cpm = ContentProcessManager::GetSingleton();
+    nsTArray<TabId> tabIds = cpm->GetTabParentsByProcessId(this->ChildID());
+    if (tabIds.Length() == 1) {
         // In the case of normal shutdown, send a shutdown message to child to
         // allow it to perform shutdown tasks.
         MessageLoop::current()->PostTask(
@@ -2601,7 +2627,7 @@ ContentParent::RecvSetClipboard(const IPCDataTransfer& aDataTransfer,
         raw->GuaranteePersistance();
 
         nsRefPtr<gfxDrawable> drawable = new gfxSurfaceDrawable(image, size);
-        nsCOMPtr<imgIContainer> imageContainer(image::ImageOps::CreateFromDrawable(drawable)); 
+        nsCOMPtr<imgIContainer> imageContainer(image::ImageOps::CreateFromDrawable(drawable));
 
         nsCOMPtr<nsISupportsInterfacePointer>
           imgPtr(do_CreateInstance(NS_SUPPORTS_INTERFACE_POINTER_CONTRACTID, &rv));
@@ -4793,6 +4819,10 @@ ContentParent::AllocateTabId(const TabId& aOpenerTabId,
     if (XRE_GetProcessType() == GeckoProcessType_Default) {
         ContentProcessManager *cpm = ContentProcessManager::GetSingleton();
         tabId = cpm->AllocateTabId(aOpenerTabId, aContext, aCpId);
+        // Add appId's reference count in oop case
+        if (tabId) {
+          PermissionManagerAddref(aCpId, tabId);
+        }
     }
     else {
         ContentChild::GetSingleton()->SendAllocateTabId(aOpenerTabId,
@@ -4808,11 +4838,19 @@ ContentParent::DeallocateTabId(const TabId& aTabId,
                                const ContentParentId& aCpId)
 {
     if (XRE_GetProcessType() == GeckoProcessType_Default) {
+        // Release appId's reference count in oop case
+        if (aTabId) {
+          PermissionManagerRelease(aCpId, aTabId);
+        }
+
+        ContentProcessManager *cpm = ContentProcessManager::GetSingleton();
+        ContentParent* cp = cpm->GetContentProcessById(aCpId);
+        cp->NotifyTabDestroyed(aTabId, true);
         ContentProcessManager::GetSingleton()->DeallocateTabId(aCpId,
                                                                aTabId);
     }
     else {
-        ContentChild::GetSingleton()->SendDeallocateTabId(aTabId);
+        ContentChild::GetSingleton()->SendDeallocateTabId(aTabId, aCpId);
     }
 }
 
@@ -4830,9 +4868,10 @@ ContentParent::RecvAllocateTabId(const TabId& aOpenerTabId,
 }
 
 bool
-ContentParent::RecvDeallocateTabId(const TabId& aTabId)
+ContentParent::RecvDeallocateTabId(const TabId& aTabId,
+                                   const ContentParentId& aCpId)
 {
-    DeallocateTabId(aTabId, this->ChildID());
+    DeallocateTabId(aTabId, aCpId);
     return true;
 }
 
@@ -4980,6 +5019,38 @@ ContentParent::DeallocPContentPermissionRequestParent(PContentPermissionRequestP
     nsContentPermissionUtils::NotifyRemoveContentPermissionRequestParent(actor);
     delete actor;
     return true;
+}
+
+/* static */ bool
+ContentParent::PermissionManagerAddref(const ContentParentId& aCpId,
+                                       const TabId& aTabId)
+{
+  NS_ASSERTION(XRE_GetProcessType() == GeckoProcessType_Default,
+               "Call PermissionManagerAddref in content process!");
+  ContentProcessManager *cpm = ContentProcessManager::GetSingleton();
+  uint32_t appId = cpm->GetAppIdByProcessAndTabId(aCpId, aTabId);
+  nsCOMPtr<nsIPermissionManager> permMgr = services::GetPermissionManager();
+  if (appId != nsIScriptSecurityManager::NO_APP_ID && permMgr) {
+    permMgr->AddrefAppId(appId);
+    return true;
+  }
+  return false;
+}
+
+/* static */ bool
+ContentParent::PermissionManagerRelease(const ContentParentId& aCpId,
+                                        const TabId& aTabId)
+{
+  NS_ASSERTION(XRE_GetProcessType() == GeckoProcessType_Default,
+               "Call PermissionManagerRelease in content process!");
+  ContentProcessManager* cpm = ContentProcessManager::GetSingleton();
+  uint32_t appId = cpm->GetAppIdByProcessAndTabId(aCpId, aTabId);
+  nsCOMPtr<nsIPermissionManager> permMgr = services::GetPermissionManager();
+  if (appId != nsIScriptSecurityManager::NO_APP_ID && permMgr) {
+    permMgr->ReleaseAppId(appId);
+    return true;
+  }
+  return false;
 }
 
 bool
