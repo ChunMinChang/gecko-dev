@@ -43,6 +43,7 @@ function SpecialPowersAPI() {
   this._applyingPrefs = false;
   this._permissionsUndoStack = [];
   this._pendingPermissions = [];
+  this._expirePermissions = [];
   this._applyingPermissions = false;
   this._fm = null;
   this._cb = null;
@@ -756,7 +757,7 @@ SpecialPowersAPI.prototype = {
      we will revert the permission back to the original.
 
      inPermissions is an array of objects where each object has a type, action, context, ex:
-     [{'type': 'SystemXHR', 'allow': 1, 'context': document}, 
+     [{'type': 'SystemXHR', 'allow': 1, 'context': document},
       {'type': 'SystemXHR', 'allow': Ci.nsIPermissionManager.PROMPT_ACTION, 'context': document}]
 
      Allow can be a boolean value of true/false or ALLOW_ACTION/DENY_ACTION/PROMPT_ACTION/UNKNOWN_ACTION
@@ -765,6 +766,7 @@ SpecialPowersAPI.prototype = {
     inPermissions = Cu.waiveXrays(inPermissions);
     var pendingPermissions = [];
     var cleanupPermissions = [];
+    var willExpirePermissions = [];
 
     for (var p in inPermissions) {
         var permission = inPermissions[p];
@@ -806,8 +808,14 @@ SpecialPowersAPI.prototype = {
         }
 
         var todo = {'op': 'add', 'type': permission.type, 'permission': perm, 'value': perm, 'url': url, 'appId': appId, 'isInBrowserElement': isInBrowserElement};
-        if (permission.remove == true)
+        if (permission.remove == true){
           todo.op = 'remove';
+        } else if (typeof permission.expireType === "number" &&
+                   typeof permission.expireTime === "number" &&
+                   permission.expireType > 0) {
+          todo.expireType = permission.expireType;
+          todo.expireTime = permission.expireTime;
+        }
 
         pendingPermissions.push(todo);
 
@@ -819,7 +827,16 @@ SpecialPowersAPI.prototype = {
           cleanupTodo.value = originalValue;
           cleanupTodo.permission = originalValue;
         }
-        cleanupPermissions.push(cleanupTodo);
+
+        if (typeof permission.expireType === "number" &&
+            typeof permission.expireTime === "number" &&
+            permission.expireType > 0) {
+          cleanupTodo.expireType = permission.expireType;
+          cleanupTodo.expireTime = permission.expireTime;
+          willExpirePermissions.push(cleanupTodo);
+        } else {
+          cleanupPermissions.push(cleanupTodo);
+        }
     }
 
     if (pendingPermissions.length > 0) {
@@ -830,7 +847,13 @@ SpecialPowersAPI.prototype = {
       // that the callback checks for. The second delay is because pref
       // observers often defer making their changes by posting an event to the
       // event loop.
-      this._permissionsUndoStack.push(cleanupPermissions);
+      if (typeof permission.expireType === "number" &&
+          typeof permission.expireTime === "number" &&
+          permission.expireType > 0) {
+        this._expirePermissions.push(willExpirePermissions);
+      } else {
+        this._permissionsUndoStack.push(cleanupPermissions);
+      }
       this._pendingPermissions.push([pendingPermissions,
 				     this._delayCallbackTwice(callback)]);
       this._applyPermissions();
@@ -851,7 +874,27 @@ SpecialPowersAPI.prototype = {
     }
   },
 
+  removeAllExpirePermissions: function() {
+    // Clear the unexpired permission
+    while (this._expirePermissions.length > 0) {
+      var transactions = this._expirePermissions.shift();
+      while (transactions.length > 0) {
+        var expirePermission = transactions.shift();
+        // check the permission
+        expirePermission.op = 'has';
+        var hasPerm = this._sendSyncMessage('SPPermissionManager', expirePermission)[0];
+        if (hasPerm) {
+          // remove the permission
+          expirePermission.op = 'remove';
+          this._sendSyncMessage('SPPermissionManager', expirePermission);
+        }
+      }
+    }
+  },
+
   flushPermissions: function(callback) {
+    this.removeAllExpirePermissions();
+
     while (this._permissionsUndoStack.length > 1)
       this.popPermissions(null);
 
@@ -1768,7 +1811,7 @@ SpecialPowersAPI.prototype = {
     return [ url, appId, isInBrowserElement, isSystem ];
   },
 
-  addPermission: function(type, allow, arg) {
+  addPermission: function(type, allow, arg, expireType, expireTime) {
     let [url, appId, isInBrowserElement, isSystem] = this._getInfoFromPermissionArg(arg);
     if (isSystem) {
       return; // nothing to do
@@ -1790,6 +1833,13 @@ SpecialPowersAPI.prototype = {
       'appId': appId,
       'isInBrowserElement': isInBrowserElement
     };
+
+    if (typeof expireType === "number" &&
+        typeof expireTime === "number" &&
+        expireType > 0) {
+      msg.expireType = expireType;
+      msg.expireTime = expireTime;
+    }
 
     this._sendSyncMessage('SPPermissionManager', msg);
   },
@@ -1836,7 +1886,7 @@ SpecialPowersAPI.prototype = {
     var msg = {
       'op': 'test',
       'type': type,
-      'value': value, 
+      'value': value,
       'url': url,
       'appId': appId,
       'isInBrowserElement': isInBrowserElement
