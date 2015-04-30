@@ -2100,6 +2100,7 @@ nsPermissionManager::UpdateDB(OperationType aOp,
 NS_IMETHODIMP
 nsPermissionManager::AddrefAppId(uint32_t aAppId)
 {
+  printf_stderr("@@@ nsPermissionManager::AddrefAppId: %d\n", aAppId);
   if (aAppId == nsIScriptSecurityManager::NO_APP_ID) {
     return NS_OK;
   }
@@ -2108,6 +2109,7 @@ nsPermissionManager::AddrefAppId(uint32_t aAppId)
   for (uint32_t i = 0; i < mAppIdRefcounts.Length(); ++i) {
     if (mAppIdRefcounts[i].mAppId == aAppId) {
       ++mAppIdRefcounts[i].mCounter;
+      printf_stderr(">> cnt:%d\n", mAppIdRefcounts[i].mCounter);
       found = true;
       break;
     }
@@ -2124,6 +2126,7 @@ nsPermissionManager::AddrefAppId(uint32_t aAppId)
 NS_IMETHODIMP
 nsPermissionManager::ReleaseAppId(uint32_t aAppId)
 {
+  printf_stderr("@@@ nsPermissionManager::ReleaseAppId: %d\n", aAppId);
   // An app has been released, maybe we have to reset its session.
 
   if (aAppId == nsIScriptSecurityManager::NO_APP_ID) {
@@ -2133,6 +2136,7 @@ nsPermissionManager::ReleaseAppId(uint32_t aAppId)
   for (uint32_t i = 0; i < mAppIdRefcounts.Length(); ++i) {
     if (mAppIdRefcounts[i].mAppId == aAppId) {
       --mAppIdRefcounts[i].mCounter;
+      printf_stderr(">> cnt:%d\n", mAppIdRefcounts[i].mCounter);
 
       if (!mAppIdRefcounts[i].mCounter) {
         mAppIdRefcounts.RemoveElementAt(i);

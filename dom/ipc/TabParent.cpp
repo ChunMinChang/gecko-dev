@@ -449,12 +449,14 @@ bool
 TabParent::Recv__delete__()
 {
   if (XRE_GetProcessType() == GeckoProcessType_Default) {
-    Manager()->AsContentParent()->NotifyTabDestroyed(this, mMarkedDestroying);
     ContentParent::DeallocateTabId(mTabId,
-                                   Manager()->AsContentParent()->ChildID());
+                                   Manager()->AsContentParent()->ChildID(),
+                                   mMarkedDestroying);
   }
   else {
-    ContentParent::DeallocateTabId(mTabId, ContentParentId(0));
+    ContentParent::DeallocateTabId(mTabId,
+                                   Manager()->ChildID(),
+                                   mMarkedDestroying);
   }
 
   return true;
@@ -2357,7 +2359,7 @@ TabParent::RecvEndIMEComposition(const bool& aCancel,
   mIMECompositionEnding = false;
   *aNoCompositionEvent = !mIMEEventCountAfterEnding;
   *aComposition = mIMECompositionText;
-  mIMECompositionText.Truncate(0);  
+  mIMECompositionText.Truncate(0);
   return true;
 }
 
@@ -2371,7 +2373,7 @@ TabParent::RecvStartPluginIME(const WidgetKeyboardEvent& aKeyboardEvent,
     return true;
   }
   widget->StartPluginIME(aKeyboardEvent,
-                         (int32_t&)aPanelX, 
+                         (int32_t&)aPanelX,
                          (int32_t&)aPanelY,
                          *aCommitted);
   return true;
@@ -2597,7 +2599,7 @@ TabParent::AllocPRenderFrameParent()
   uint64_t layersId = 0;
   bool success = false;
   if(frameLoader) {
-    PRenderFrameParent* renderFrame = 
+    PRenderFrameParent* renderFrame =
       new RenderFrameParent(frameLoader,
                             &textureFactoryIdentifier,
                             &layersId,
@@ -3224,7 +3226,7 @@ TabParent::RecvInvokeDragSession(nsTArray<IPCDataTransfer>&& aTransfers,
   }
   mDragAreaX = aDragAreaX;
   mDragAreaY = aDragAreaY;
-  
+
   esm->BeginTrackingRemoteDragGesture(mFrameElement);
 
   return true;

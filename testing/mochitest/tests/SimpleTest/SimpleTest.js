@@ -953,6 +953,7 @@ SimpleTest.registerCleanupFunction = function(aFunc) {
  * SimpleTest.waitForExplicitFinish() has been invoked.
 **/
 SimpleTest.finish = function() {
+    dump("====================== SimpleTest.finish!!!\n");
     if (SimpleTest._alreadyFinished) {
         var err = "[SimpleTest.finish()] this test already called finish!";
         if (parentRunner) {
@@ -1007,7 +1008,9 @@ SimpleTest.finish = function() {
 
         if (!parentRunner || parentRunner.showTestReport) {
             SpecialPowers.flushAllAppsLaunchable();
+            dump("----------------- after flushAllAppsLaunchable!!\n");
             SpecialPowers.flushPermissions(function () {
+              dump("----------------- after flushPermissions!!\n");
               SpecialPowers.flushPrefEnv(function() {
                 SimpleTest.showReport();
               });
