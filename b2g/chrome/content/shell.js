@@ -455,6 +455,15 @@ var shell = {
     let content = this.contentBrowser.contentWindow;
     switch (evt.type) {
       case 'keydown':
+        dump("[shell.js] " + evt.type +
+          " >> phase: " + evt.eventPhase +
+          ", key: " + evt.key +
+          ", current target: " + evt.currentTarget +
+          ", target: " + evt.target.nodeName + "\n");
+          dump("<<<<<<<<<<<<<<<<<<<< [shell.js] call preventDefault()\n");
+          evt.preventDefault();
+          //dump("<<<<<<<<<<<<<<<<<<<< [shell.js] call stopImmediatePropagation()\n");
+          //evt.stopImmediatePropagation();
       case 'keyup':
         this.filterHardwareKeys(evt);
         break;

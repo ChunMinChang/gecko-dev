@@ -85,10 +85,10 @@ Event::ConstructorInit(EventTarget* aOwner,
       A derived class might want to allocate its own type of aEvent
       (derived from WidgetEvent). To do this, it should take care to pass
       a non-nullptr aEvent to this ctor, e.g.:
-      
+
         FooEvent::FooEvent(..., WidgetEvent* aEvent)
           : Event(..., aEvent ? aEvent : new WidgetEvent())
-      
+
       Then, to override the mEventIsInternal assignments done by the
       base ctor, it should do this in its own ctor:
 
@@ -126,7 +126,7 @@ Event::InitPresContextData(nsPresContext* aPresContext)
   }
 }
 
-Event::~Event() 
+Event::~Event()
 {
   NS_ASSERT_OWNINGTHREAD(Event);
 
@@ -461,6 +461,7 @@ Event::StopPropagation()
 NS_IMETHODIMP
 Event::StopImmediatePropagation()
 {
+  printf_stderr("<<<<< Event::StopImmediatePropagation()\n");
   mEvent->mFlags.mPropagationStopped = true;
   mEvent->mFlags.mImmediatePropagationStopped = true;
   return NS_OK;
@@ -476,6 +477,7 @@ Event::GetIsTrusted(bool* aIsTrusted)
 NS_IMETHODIMP
 Event::PreventDefault()
 {
+  printf_stderr("<<<<< Event::PreventDefault()\n");
   // This method is called only from C++ code which must handle default action
   // of this event.  So, pass true always.
   PreventDefaultInternal(true);
@@ -868,7 +870,7 @@ Event::GetScreenCoords(nsPresContext* aPresContext,
     return EventStateManager::sLastScreenPoint;
   }
 
-  if (!aEvent || 
+  if (!aEvent ||
        (aEvent->mClass != eMouseEventClass &&
         aEvent->mClass != eMouseScrollEventClass &&
         aEvent->mClass != eWheelEventClass &&
@@ -1188,7 +1190,7 @@ nsresult
 NS_NewDOMEvent(nsIDOMEvent** aInstancePtrResult,
                EventTarget* aOwner,
                nsPresContext* aPresContext,
-               WidgetEvent* aEvent) 
+               WidgetEvent* aEvent)
 {
   Event* it = new Event(aOwner, aPresContext, aEvent);
   NS_ADDREF(it);

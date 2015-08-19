@@ -1307,7 +1307,7 @@ EventStateManager::CreateClickHoldTimer(nsPresContext* inPresContext,
     if (nsContentUtils::HasNonEmptyAttr(mGestureDownContent, kNameSpaceID_None,
                                         nsGkAtoms::popup))
       return;
-    
+
     // check for a <menubutton> like bookmarks
     if (mGestureDownContent->Tag() == nsGkAtoms::menubutton)
       return;
@@ -1447,13 +1447,13 @@ EventStateManager::FireContextClick()
                              WidgetMouseEvent::eReal);
       event.clickCount = 1;
       FillInEventFromGestureDown(&event);
-        
+
       // stop selection tracking, we're in control now
       if (mCurrentTarget)
       {
         nsRefPtr<nsFrameSelection> frameSel =
           mCurrentTarget->GetFrameSelection();
-        
+
         if (frameSel && frameSel->GetDragState()) {
           // note that this can cause selection changed events to fire if we're in
           // a text field, which will null out mCurrentTarget
@@ -2683,11 +2683,13 @@ EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
                                    nsIFrame* aTargetFrame,
                                    nsEventStatus* aStatus)
 {
+  printf_stderr("[%s] @@@@@@ EventStateManager::PostHandleEvent\n",(XRE_IsParentProcess())? "chrome":"content");
   NS_ENSURE_ARG(aPresContext);
   NS_ENSURE_ARG_POINTER(aStatus);
 
   bool dispatchedToContentProcess = HandleCrossProcessEvent(aEvent,
                                                             aStatus);
+  printf_stderr(">>>>> dispatchedToContentProcess: %d\n", dispatchedToContentProcess);
 
   mCurrentTarget = aTargetFrame;
   mCurrentTargetContent = nullptr;
@@ -2726,7 +2728,7 @@ EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
 
       nsCOMPtr<nsIContent> activeContent;
       if (nsEventStatus_eConsumeNoDefault != *aStatus) {
-        nsCOMPtr<nsIContent> newFocus;      
+        nsCOMPtr<nsIContent> newFocus;
         bool suppressBlur = false;
         if (mCurrentTarget) {
           mCurrentTarget->GetContentForEvent(aEvent, getter_AddRefs(newFocus));
@@ -3290,7 +3292,7 @@ EventStateManager::NotifyDestroyPresContext(nsPresContext* aPresContext)
     // Bug 70855: Presentation is going away, possibly for a reframe.
     // Reset the hover state so that if we're recreating the presentation,
     // we won't have the old hover state still set in the new presentation,
-    // as if the new presentation is resized, a new element may be hovered. 
+    // as if the new presentation is resized, a new element may be hovered.
     SetContentState(nullptr, NS_EVENT_STATE_HOVER);
   }
   mPointersEnterLeaveHelper.Clear();
@@ -3877,7 +3879,7 @@ EventStateManager::NotifyMouseOver(WidgetMouseEvent* aMouseEvent,
   nsCOMPtr<nsIContent> lastOverElement = wrapper->mLastOverElement;
 
   bool isPointer = aMouseEvent->mClass == ePointerEventClass;
-  
+
   Maybe<EnterLeaveDispatcher> enterDispatcher;
   if (dispatch) {
     enterDispatcher.emplace(this, aContent, lastOverElement, aMouseEvent,
@@ -3896,7 +3898,7 @@ EventStateManager::NotifyMouseOver(WidgetMouseEvent* aMouseEvent,
 
   if (dispatch) {
     // Fire mouseover
-    wrapper->mLastOverFrame = 
+    wrapper->mLastOverFrame =
       DispatchMouseOrPointerEvent(aMouseEvent,
                                   isPointer ? NS_POINTER_OVER : NS_MOUSE_ENTER_SYNTH,
                                   aContent, lastOverElement);
@@ -3935,7 +3937,7 @@ GetWindowInnerRectCenter(nsPIDOMWindow* aWindow,
   float cssInnerY = 0.0;
   aWindow->GetMozInnerScreenY(&cssInnerY);
   int32_t innerY = int32_t(NS_round(cssInnerY));
- 
+
   int32_t innerWidth = 0;
   aWindow->GetInnerWidth(&innerWidth);
 
@@ -4679,7 +4681,7 @@ EventStateManager::SetContentState(nsIContent* aContent, EventStates aState)
     } else {
       NS_ASSERTION(aState == NS_EVENT_STATE_HOVER, "How did that happen?");
       nsIContent* newHover;
-      
+
       if (mPresContext->IsDynamic()) {
         newHover = aContent;
       } else {
@@ -4982,7 +4984,7 @@ EventStateManager::DoContentCommandEvent(WidgetContentCommandEvent* aEvent)
           rv = commandController->DoCommandWithParams(cmd, params);
           break;
         }
-        
+
         default:
           rv = controller->DoCommand(cmd);
           break;
