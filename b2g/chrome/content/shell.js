@@ -468,9 +468,15 @@ var shell = {
 
   handleEvent: function shell_handleEvent(evt) {
     let content = this.contentBrowser.contentWindow;
+    dump('[shell.js] evt type:' + evt.type);
     switch (evt.type) {
       case 'keydown':
       case 'keyup':
+        dump("[shell.js] " + evt.type +
+          " >> phase: " + evt.eventPhase +
+          ", key: " + evt.key +
+          ", current target: " + evt.currentTarget +
+          ", target: " + evt.target.nodeName + "\n");
         this.broadcastHardwareKeys(evt);
         break;
       case 'sizemodechange':

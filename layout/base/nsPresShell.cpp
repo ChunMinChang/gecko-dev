@@ -6932,6 +6932,22 @@ PresShell::HandleKeyboardEvent(nsINode* aTarget,
                                nsEventStatus* aStatus,
                                EventDispatchingCallback* aEventCB)
 {
+  printf_stderr("[%s] @@@@@@@@ PresShell::HandleKeyboardEvent\n", (XRE_IsParentProcess())? "chrome":"content");
+  switch (aEvent.mMessage) {
+    case eKeyUp:
+      printf_stderr(">>>>>>> keyup\n");
+      break;
+    case eKeyDown:
+      printf_stderr(">>>>>>> keydown\n");
+      break;
+    case eKeyPress:
+      printf_stderr(">>>>>>> keypress\n");
+      break;
+    default:
+      printf_stderr(">>>>>>> not key* event\n");
+      break;
+  }
+
   if (aEvent.mMessage == eKeyPress ||
       !BeforeAfterKeyboardEventEnabled()) {
     EventDispatcher::Dispatch(aTarget, mPresContext,
