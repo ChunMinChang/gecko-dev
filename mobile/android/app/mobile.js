@@ -192,7 +192,7 @@ pref("xpinstall.whitelist.directRequest", false);
 pref("xpinstall.whitelist.fileRequest", false);
 pref("xpinstall.whitelist.add", "https://addons.mozilla.org");
 
-pref("xpinstall.signatures.required", true);
+pref("xpinstall.signatures.required", false);
 
 pref("extensions.enabledScopes", 1);
 pref("extensions.autoupdate.enabled", true);
