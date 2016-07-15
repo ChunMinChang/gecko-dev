@@ -8,14 +8,115 @@
 
 #include "dns_sd.h"
 #include "mozilla/Atomics.h"
+#include "mozilla/RefCounted.h"
 #include "mozilla/RefPtr.h"
 #include "nsCOMPtr.h"
+#include "nsDeque.h"
 #include "nsIDNSServiceDiscovery.h"
 #include "nsIThread.h"
 #include "nsString.h"
 
 namespace mozilla {
 namespace net {
+
+
+// The PendingSerive will copy the RegisterOperator's parameters into its
+// services queue. The stored pending service will start registration after
+// receving the reply for notifying the previous service registeration is done.
+// RefCounted<T> is a helper class for adding reference counting mechanism.
+struct PendingService: public RefCounted<PendingService>
+{
+  MOZ_DECLARE_REFCOUNTED_TYPENAME(PendingService)
+
+  nsIDNSServiceInfo* mServiceInfo;
+  nsIDNSRegistrationListener* mListener;
+
+  PendingService(nsIDNSServiceInfo* aServiceInfo,
+                 nsIDNSRegistrationListener* aListener)
+    : mServiceInfo(aServiceInfo)
+    , mListener(aListener)
+  {
+  }
+};
+
+
+// The following is the type-safe wrapper around nsDeque
+// for storing PendingSerive's data.
+// The T must be one class that supports reference counting mechanism.
+// The ServiceQueueDeallocator will be called in nsDeque::~nsDeque() or
+// nsDeque::Erase() to deallocate the objects. nsDeque::Erase() will remove
+// and delete all items in the queue. See more from nsDeque.h.
+template <class T>
+class ServiceQueueDeallocator : public nsDequeFunctor
+{
+  virtual void* operator() (void* aObject)
+  {
+    RefPtr<T> releaseMe = dont_AddRef(static_cast<T*>(aObject));
+    return nullptr;
+  }
+};
+
+// The type-safe queue to be used to store the PendingService's data
+template <class T>
+class ServiceQueue : private nsDeque
+{
+public:
+  ServiceQueue()
+    : nsDeque(new ServiceQueueDeallocator<T>())
+  {
+  };
+
+  ~ServiceQueue()
+  {
+    Clear();
+  }
+
+  inline size_t GetSize()
+  {
+    return nsDeque::GetSize();
+  }
+
+  bool IsEmpty()
+  {
+    return !nsDeque::GetSize();
+  }
+
+  inline bool Push(T* aItem)
+  {
+    MOZ_ASSERT(aItem);
+    NS_ADDREF(aItem);
+    size_t sizeBefore = GetSize();
+    nsDeque::Push(aItem);
+    if (GetSize() != sizeBefore + 1) {
+      NS_RELEASE(aItem);
+      return false;
+    }
+    return true;
+  }
+
+  inline already_AddRefed<T> PopFront()
+  {
+    RefPtr<T> rv = dont_AddRef(static_cast<T*>(nsDeque::PopFront()));
+    return rv.forget();
+  }
+
+  inline void RemoveFront()
+  {
+    RefPtr<T> releaseMe = PopFront();
+  }
+
+  inline T* PeekFront()
+  {
+    return static_cast<T*>(nsDeque::PeekFront());
+  }
+
+  void Clear()
+  {
+    while (GetSize() > 0) {
+      RemoveFront();
+    }
+  }
+};
 
 class MDNSResponderOperator
 {
@@ -88,9 +189,16 @@ public:
 
 private:
   ~RegisterOperator() = default;
+  // Start registering the pending services
+  nsresult RunNext();
 
   nsCOMPtr<nsIDNSServiceInfo> mServiceInfo;
   nsCOMPtr<nsIDNSRegistrationListener> mListener;
+
+  // The service queue is used to store the pending services.
+  // Those stored services will be registered after the previous
+  // service finishes registration.
+  ServiceQueue<PendingService> mServiceQueue;
 };
 
 class ResolveOperator final : public MDNSResponderOperator

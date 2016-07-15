@@ -408,14 +408,27 @@ BrowseOperator::Reply(DNSServiceRef aSdRef,
 RegisterOperator::RegisterOperator(nsIDNSServiceInfo* aServiceInfo,
                                    nsIDNSRegistrationListener* aListener)
   : MDNSResponderOperator()
-  , mServiceInfo(aServiceInfo)
-  , mListener(aListener)
 {
+  // Push request service into the service queue
+  PendingService* ps = new PendingService(aServiceInfo, aListener);
+  mServiceQueue.Push(ps);
+
+  if (mServiceQueue.GetSize() > 1) {
+    return;
+  }
+
+  mServiceInfo = aServiceInfo;
+  mListener = aListener;
 }
 
 nsresult
 RegisterOperator::Start()
 {
+  // Do nothing if there is a running service
+  if (mServiceQueue.GetSize() > 1) {
+    return NS_OK;
+  }
+
   nsresult rv;
 
   rv = MDNSResponderOperator::Start();
@@ -507,6 +520,21 @@ RegisterOperator::Start()
 }
 
 nsresult
+RegisterOperator::RunNext()
+{
+  if (mServiceQueue.IsEmpty()) {
+    return NS_OK;
+  }
+
+  PendingService* ps = mServiceQueue.PeekFront();
+  mServiceInfo = ps->mServiceInfo;
+  mListener = ps->mListener;
+
+  return NS_DispatchToMainThread(
+    NS_NewRunnableMethod(this, &RegisterOperator::Start));
+}
+
+nsresult
 RegisterOperator::Stop()
 {
   bool isServing = IsServing();
@@ -559,6 +587,11 @@ RegisterOperator::Reply(DNSServiceRef aSdRef,
   } else {
     mListener->OnRegistrationFailed(info, aErrorCode);
   }
+
+  // Remove the finished servie from service queue
+  mServiceQueue.RemoveFront();
+  // Start registering pending services
+  RunNext();
 }
 
 ResolveOperator::ResolveOperator(nsIDNSServiceInfo* aServiceInfo,
