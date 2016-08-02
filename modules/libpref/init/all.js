@@ -5278,13 +5278,14 @@ pref("dom.udpsocket.enabled", false);
 pref("dom.beforeAfterKeyboardEvent.enabled", false);
 
 // Presentation API
-pref("dom.presentation.enabled", false);
-pref("dom.presentation.controller.enabled", false);
+pref("dom.presentation.enabled", true);
+pref("dom.presentation.controller.enabled", true);
 pref("dom.presentation.receiver.enabled", false);
 
 // Presentation Device
+pref("dom.presentation.device.name", "Firefox Desktop");
 pref("dom.presentation.tcp_server.debug", false);
-pref("dom.presentation.discovery.enabled", false);
+pref("dom.presentation.discovery.enabled", true);
 pref("dom.presentation.discovery.legacy.enabled", false);
 pref("dom.presentation.discovery.timeout_ms", 10000);
 pref("dom.presentation.discoverable", false);
