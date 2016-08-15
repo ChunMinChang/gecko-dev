@@ -64,6 +64,10 @@
                           android:title="@string/pref_media_autoplay_enabled"
                           android:summary="@string/pref_media_autoplay_enabled_summary" />
 
+        <SwitchPreference android:key="media.autoplay.mutable"
+                          android:title="@string/pref_media_autoplay_mutable"
+                          android:summary="@string/pref_media_autoplay_mutable_summary" />
+
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/pref_category_developer_tools">

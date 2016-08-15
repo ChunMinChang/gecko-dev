@@ -265,6 +265,8 @@
   <string name="pref_font_size_preview_text">&pref_font_size_preview_text;</string>
   <string name="pref_media_autoplay_enabled">&pref_media_autoplay_enabled;</string>
   <string name="pref_media_autoplay_enabled_summary">&pref_media_autoplay_enabled_summary;</string>
+  <string name="pref_media_autoplay_mutable">&pref_media_autoplay_mutable;</string>
+  <string name="pref_media_autoplay_mutable_summary">&pref_media_autoplay_mutable_summary;</string>
   <string name="pref_zoom_force_enabled">&pref_zoom_force_enabled;</string>
   <string name="pref_zoom_force_enabled_summary">&pref_zoom_force_enabled_summary;</string>
   <string name="pref_voice_input">&pref_voice_input;</string>

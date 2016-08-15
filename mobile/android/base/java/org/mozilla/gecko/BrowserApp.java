@@ -16,6 +16,10 @@ import android.widget.VideoView;
 import android.graphics.RectF;
 import android.graphics.Rect;
 
+import android.media.AudioManager;
+import android.content.IntentFilter;
+import android.content.BroadcastReceiver;
+
 import org.json.JSONArray;
 import org.mozilla.gecko.activitystream.ActivityStream;
 import org.mozilla.gecko.adjust.AdjustHelperInterface;
@@ -279,6 +283,23 @@ public class BrowserApp extends GeckoApp
         LEAVING
     }
 
+    // The types of ringer mode on the device.
+    public static enum RingerMode {
+        NORMAL("Normal"),
+        VIBRATE("Vibrate"),
+        SILENT("Silent");
+
+        private final String name;
+
+        private RingerMode(String s) {
+          name = s;
+        }
+
+        public String toString() {
+          return this.name;
+        }
+    }
+
     private Vector<MenuItemInfo> mAddonMenuItemsCache;
     private PropertyAnimator mMainLayoutAnimator;
 
@@ -460,6 +481,25 @@ public class BrowserApp extends GeckoApp
         } else {
             hideBrowserSearch();
         }
+    }
+
+    private RingerMode getRingerMode() {
+        AudioManager am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+        RingerMode mode = RingerMode.NORMAL;
+        switch (am.getRingerMode()) {
+            case AudioManager.RINGER_MODE_SILENT:
+                mode = RingerMode.SILENT;
+                break;
+
+            case AudioManager.RINGER_MODE_VIBRATE:
+                mode = RingerMode.VIBRATE;
+                break;
+
+            case AudioManager.RINGER_MODE_NORMAL:
+                mode = RingerMode.NORMAL;
+                break;
+        }
+        return mode;
     }
 
     @Override
@@ -771,6 +811,19 @@ public class BrowserApp extends GeckoApp
         }
 
         AudioFocusAgent.getInstance().attachToContext(this);
+
+        // Get the current ringer mode
+        GeckoAppShell.notifyObservers("RingerMode:Change", getRingerMode().toString());
+        // Register a ringer mode change listener
+        BroadcastReceiver receiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                Log.d(LOGTAG, "Ringer mode change!");
+                GeckoAppShell.notifyObservers("RingerMode:Change", getRingerMode().toString());
+            }
+        };
+        IntentFilter filter = new IntentFilter(AudioManager.RINGER_MODE_CHANGED_ACTION);
+        registerReceiver(receiver,filter);
 
         for (final BrowserAppDelegate delegate : delegates) {
             delegate.onCreate(this, savedInstanceState);

@@ -15,6 +15,7 @@ Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/AddonManager.jsm");
 Cu.import("resource://gre/modules/AsyncPrefs.jsm");
 Cu.import("resource://gre/modules/DelayedInit.jsm");
+Cu.import("resource://gre/modules/AudioController.jsm");
 
 if (AppConstants.ACCESSIBILITY) {
   XPCOMUtils.defineLazyModuleGetter(this, "AccessFu",
@@ -431,6 +432,7 @@ var BrowserApp = {
     Tabs.init();
     SearchEngines.init();
     Experiments.init();
+    AudioController.init();
 
     if ("arguments" in window) {
       if (window.arguments[0])
@@ -479,6 +481,9 @@ var BrowserApp = {
       let defaults = Services.prefs.getDefaultBranch(null);
       defaults.setBoolPref("media.autoplay.enabled", false);
     }
+
+    let defaults = Services.prefs.getDefaultBranch(null);
+    defaults.setBoolPref("media.autoplay.mutable", false);
 
     InitLater(() => {
       // The order that context menu items are added is important
@@ -4045,6 +4050,8 @@ Tab.prototype = {
       case "DOMContentLoaded": {
         let target = aEvent.originalTarget;
 
+        AudioController.maybeMuteAutoplay(this.browser.contentDocument);
+
         // ignore on frames and other documents
         if (target != this.browser.contentDocument)
           return;
@@ -7607,4 +7614,3 @@ HTMLContextMenuItem.prototype = Object.create(ContextMenuItem.prototype, {
     }
   },
 });
-
