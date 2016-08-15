@@ -482,11 +482,9 @@ var BrowserApp = {
         SharedPreferences.forApp().setBoolPref("android.not_a_preference.healthreport.uploadEnabled", isHealthReportEnabled);
     }
 
-    let sysInfo = Cc["@mozilla.org/system-info;1"].getService(Ci.nsIPropertyBag2);
-    if (sysInfo.get("version") < 16) {
-      let defaults = Services.prefs.getDefaultBranch(null);
-      defaults.setBoolPref("media.autoplay.enabled", false);
-    }
+    // Disable autoplay by default on mobile devices
+    let defaults = Services.prefs.getDefaultBranch(null);
+    defaults.setBoolPref("media.autoplay.enabled", false);
 
     InitLater(() => {
       // The order that context menu items are added is important
