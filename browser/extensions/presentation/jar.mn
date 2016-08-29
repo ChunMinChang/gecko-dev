@@ -1,0 +1,5 @@
+[features/presentation@mozilla.org] presentation.jar:
+% content presentation.api %content/
+  content/  (content/*)
+% locale presentation.api en-US %locale/en-US/
+  locale/  (locale/*)

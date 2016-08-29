@@ -9,6 +9,7 @@ DIRS += [
     'pdfjs',
     'pocket',
     'webcompat',
+    'presentation',
 ]
 
 # Only include the following system add-ons if building Aurora or Nightly
