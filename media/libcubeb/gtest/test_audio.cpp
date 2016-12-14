@@ -118,7 +118,7 @@ int supports_channel_count(const char* backend_id, int nchannels)
     (strcmp(backend_id, "opensl") != 0 && strcmp(backend_id, "audiotrack") != 0);
 }
 
-int run_test(int num_channels, int sampling_rate, int is_float)
+int run_test(int num_channels, cubeb_layout_map layout_map, int sampling_rate, int is_float)
 {
   int r = CUBEB_OK;
 
@@ -142,12 +142,13 @@ int run_test(int num_channels, int sampling_rate, int is_float)
     goto cleanup;
   }
 
-  fprintf(stderr, "Testing %d channel(s), %d Hz, %s (%s)\n", num_channels, sampling_rate, is_float ? "float" : "short", cubeb_get_backend_id(ctx));
+  fprintf(stderr, "Testing %d channel(s), layout: %s, %d Hz, %s (%s)\n", num_channels, layout_map.name, sampling_rate, is_float ? "float" : "short", cubeb_get_backend_id(ctx));
 
   cubeb_stream_params params;
   params.format = is_float ? CUBEB_SAMPLE_FLOAT32NE : CUBEB_SAMPLE_S16NE;
   params.rate = sampling_rate;
   params.channels = num_channels;
+  params.layout = layout_map.layout;
 
   synth = synth_create(params.channels, params.rate);
   if (synth == NULL) {
@@ -200,6 +201,7 @@ int run_panning_volume_test(int is_float)
   params.format = is_float ? CUBEB_SAMPLE_FLOAT32NE : CUBEB_SAMPLE_S16NE;
   params.rate = 44100;
   params.channels = 2;
+  params.layout = CUBEB_LAYOUT_STEREO;
 
   synth = synth_create(params.channels, params.rate);
   if (synth == NULL) {
@@ -278,9 +280,12 @@ TEST(cubeb, run_channel_rate_test)
     for(int i = 0; i < NELEMS(freq_values); ++i) {
       ASSERT_TRUE(channel_values[j] < MAX_NUM_CHANNELS);
       fprintf(stderr, "--------------------------\n");
-      ASSERT_EQ(run_test(channel_values[j], freq_values[i], 0), CUBEB_OK);
-      ASSERT_EQ(run_test(channel_values[j], freq_values[i], 1), CUBEB_OK);
+      for (int k = 0 ; k < NELEMS(CUBEB_CHANNEL_LAYOUT_MAPS); ++k ) {
+        if (CUBEB_CHANNEL_LAYOUT_MAPS[k].channels == channel_values[j]) {
+          ASSERT_EQ(run_test(channel_values[j], CUBEB_CHANNEL_LAYOUT_MAPS[k], freq_values[i], 0), CUBEB_OK);
+          ASSERT_EQ(run_test(channel_values[j], CUBEB_CHANNEL_LAYOUT_MAPS[k], freq_values[i], 1), CUBEB_OK);
+        }
+      }
     }
   }
 }
-

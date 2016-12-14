@@ -176,12 +176,84 @@ typedef enum {
   CUBEB_LOG_VERBOSE = 2, /**< Verbose logging of callbacks, can have performance implications. */
 } cubeb_log_level;
 
+/** SMPTE channel layout (also known as wave order)
+ * DUAL-MONO      L   R
+ * DUAL-MONO-LFE  L   R   LFE
+ * MONO           M
+ * MONO-LFE       M   LFE
+ * STEREO         L   R
+ * STEREO-LFE     L   R   LFE
+ * 3F             L   R   C
+ * 3F-LFE         L   R   C    LFE
+ * 2F1            L   R   S
+ * 2F1-LFE        L   R   LFE  S
+ * 3F1            L   R   C    S
+ * 3F1-LFE        L   R   C    LFE S
+ * 2F2            L   R   LS   RS
+ * 2F2-LFE        L   R   LFE  LS   RS
+ * 3F2            L   R   C    LS   RS
+ * 3F2-LFE        L   R   C    LFE  LS   RS
+ * 3F3R-LFE       L   R   C    LFE  BC   LS   RS
+ * 3F4-LFE        L   R   C    LFE  Rls  Rrs  LS   RS
+ */
+typedef enum {
+  CUBEB_LAYOUT_UNSUPPORTED, // Indicate the speaker's layout is not supported.
+  CUBEB_LAYOUT_DUAL_MONO,
+  CUBEB_LAYOUT_DUAL_MONO_LFE,
+  CUBEB_LAYOUT_MONO,
+  CUBEB_LAYOUT_MONO_LFE,
+  CUBEB_LAYOUT_STEREO,
+  CUBEB_LAYOUT_STEREO_LFE,
+  CUBEB_LAYOUT_3F,
+  CUBEB_LAYOUT_3F_LFE,
+  CUBEB_LAYOUT_2F1,
+  CUBEB_LAYOUT_2F1_LFE,
+  CUBEB_LAYOUT_3F1,
+  CUBEB_LAYOUT_3F1_LFE,
+  CUBEB_LAYOUT_2F2,
+  CUBEB_LAYOUT_2F2_LFE,
+  CUBEB_LAYOUT_3F2,
+  CUBEB_LAYOUT_3F2_LFE,
+  CUBEB_LAYOUT_3F3R_LFE,
+  CUBEB_LAYOUT_3F4_LFE,
+  CUBEB_LAYOUT_MAX
+} cubeb_channel_layout;
+
+typedef struct {
+  const char* name;
+  const unsigned int channels;
+  const cubeb_channel_layout layout;
+} cubeb_layout_map;
+
+static const cubeb_layout_map CUBEB_CHANNEL_LAYOUT_MAPS[CUBEB_LAYOUT_MAX] = {
+  { "unsupported",    0,  CUBEB_LAYOUT_UNSUPPORTED },
+  { "dual mono",      2,  CUBEB_LAYOUT_DUAL_MONO },
+  { "dual mono lfe",  3,  CUBEB_LAYOUT_DUAL_MONO_LFE },
+  { "mono",           1,  CUBEB_LAYOUT_MONO },
+  { "mono lfe",       2,  CUBEB_LAYOUT_MONO_LFE },
+  { "stereo",         2,  CUBEB_LAYOUT_STEREO },
+  { "stereo lfe",     3,  CUBEB_LAYOUT_STEREO_LFE },
+  { "3f",             3,  CUBEB_LAYOUT_3F },
+  { "3f lfe",         4,  CUBEB_LAYOUT_3F_LFE },
+  { "2f1",            3,  CUBEB_LAYOUT_2F1 },
+  { "2f1 lfe",        4,  CUBEB_LAYOUT_2F1_LFE },
+  { "3f1",            4,  CUBEB_LAYOUT_3F1 },
+  { "3f1 lfe",        5,  CUBEB_LAYOUT_3F1_LFE },
+  { "2f2",            4,  CUBEB_LAYOUT_2F2 },
+  { "2f2 lfe",        5,  CUBEB_LAYOUT_2F2_LFE },
+  { "3f2",            5,  CUBEB_LAYOUT_3F2 },
+  { "3f2 lfe",        6,  CUBEB_LAYOUT_3F2_LFE },
+  { "3f3r lfe",       7,  CUBEB_LAYOUT_3F3R_LFE },
+  { "3f4 lfe",        8,  CUBEB_LAYOUT_3F4_LFE }
+};
+
 /** Stream format initialization parameters. */
 typedef struct {
-  cubeb_sample_format format; /**< Requested sample format.  One of
-                                   #cubeb_sample_format. */
-  unsigned int rate;          /**< Requested sample rate.  Valid range is [1000, 192000]. */
-  unsigned int channels;      /**< Requested channel count.  Valid range is [1, 8]. */
+  cubeb_sample_format format;   /**< Requested sample format.  One of
+                                     #cubeb_sample_format. */
+  unsigned int rate;            /**< Requested sample rate.  Valid range is [1000, 192000]. */
+  unsigned int channels;        /**< Requested channel count.  Valid range is [1, 8]. */
+  cubeb_channel_layout layout;  /**< Requested channel order. Use nullptr for default setting. */
 #if defined(__ANDROID__)
   cubeb_stream_type stream_type; /**< Used to map Android audio stream types */
 #endif
@@ -397,6 +469,15 @@ CUBEB_EXPORT int cubeb_get_min_latency(cubeb * context,
     @retval CUBEB_ERROR_INVALID_PARAMETER
     @retval CUBEB_ERROR_NOT_SUPPORTED */
 CUBEB_EXPORT int cubeb_get_preferred_sample_rate(cubeb * context, uint32_t * rate);
+
+/** Get the preferred layout for this backend: this is hardware and
+    platform dependant.
+    @param context A pointer to the cubeb context.
+    @param layout The layout of the current speaker configuration.
+    @retval CUBEB_OK
+    @retval CUBEB_ERROR_INVALID_PARAMETER
+    @retval CUBEB_ERROR_NOT_SUPPORTED */
+CUBEB_EXPORT int cubeb_get_preferred_channel_layout(cubeb * context, cubeb_channel_layout * layout);
 
 /** Destroy an application context. This must be called after all stream have
  *  been destroyed.

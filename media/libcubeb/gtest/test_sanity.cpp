@@ -18,6 +18,7 @@
 #define STREAM_RATE 44100
 #define STREAM_LATENCY 100 * STREAM_RATE / 1000
 #define STREAM_CHANNELS 1
+#define STREAM_LAYOUT CUBEB_LAYOUT_MONO
 #if (defined(_WIN32) || defined(__WIN32__))
 #define STREAM_FORMAT CUBEB_SAMPLE_FLOAT32LE
 #else
@@ -138,6 +139,7 @@ TEST(cubeb, context_variables)
   params.channels = STREAM_CHANNELS;
   params.format = STREAM_FORMAT;
   params.rate = STREAM_RATE;
+  params.layout = STREAM_LAYOUT;
 #if defined(__ANDROID__)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
@@ -170,6 +172,7 @@ TEST(cubeb, init_destroy_stream)
   params.format = STREAM_FORMAT;
   params.rate = STREAM_RATE;
   params.channels = STREAM_CHANNELS;
+  params.layout = STREAM_LAYOUT;
 #if defined(__ANDROID__)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
@@ -198,6 +201,7 @@ TEST(cubeb, init_destroy_multiple_streams)
   params.format = STREAM_FORMAT;
   params.rate = STREAM_RATE;
   params.channels = STREAM_CHANNELS;
+  params.layout = STREAM_LAYOUT;
 #if defined(__ANDROID__)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
@@ -230,6 +234,7 @@ TEST(cubeb, configure_stream)
   params.format = STREAM_FORMAT;
   params.rate = STREAM_RATE;
   params.channels = 2; // panning
+  params.layout = CUBEB_LAYOUT_STEREO;
 #if defined(__ANDROID__)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
@@ -265,6 +270,7 @@ test_init_start_stop_destroy_multiple_streams(int early, int delay_ms)
   params.format = STREAM_FORMAT;
   params.rate = STREAM_RATE;
   params.channels = STREAM_CHANNELS;
+  params.layout = STREAM_LAYOUT;
 #if defined(__ANDROID__)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
@@ -352,6 +358,7 @@ TEST(cubeb, init_destroy_multiple_contexts_and_streams)
   params.format = STREAM_FORMAT;
   params.rate = STREAM_RATE;
   params.channels = STREAM_CHANNELS;
+  params.layout = STREAM_LAYOUT;
 #if defined(__ANDROID__)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
@@ -392,6 +399,7 @@ TEST(cubeb, basic_stream_operations)
   params.format = STREAM_FORMAT;
   params.rate = STREAM_RATE;
   params.channels = STREAM_CHANNELS;
+  params.layout = STREAM_LAYOUT;
 #if defined(__ANDROID__)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
@@ -442,6 +450,7 @@ TEST(cubeb, stream_position)
   params.format = STREAM_FORMAT;
   params.rate = STREAM_RATE;
   params.channels = STREAM_CHANNELS;
+  params.layout = STREAM_LAYOUT;
 #if defined(__ANDROID__)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
@@ -581,6 +590,7 @@ TEST(cubeb, drain)
   params.format = STREAM_FORMAT;
   params.rate = STREAM_RATE;
   params.channels = STREAM_CHANNELS;
+  params.layout = STREAM_LAYOUT;
 #if defined(__ANDROID__)
   params.stream_type = CUBEB_STREAM_TYPE_MUSIC;
 #endif
