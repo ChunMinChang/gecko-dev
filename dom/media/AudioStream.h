@@ -190,7 +190,7 @@ public:
   // Initialize the audio stream. aNumChannels is the number of audio
   // channels (1 for mono, 2 for stereo, etc) and aRate is the sample rate
   // (22050Hz, 44100Hz, etc).
-  nsresult Init(uint32_t aNumChannels, uint32_t aRate,
+  nsresult Init(uint32_t aNumChannels, uint32_t aChannelMap, uint32_t aRate,
                 const dom::AudioChannel aAudioStreamChannel);
 
   // Closes the stream. All future use of the stream is an error.

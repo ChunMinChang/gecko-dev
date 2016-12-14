@@ -23,6 +23,23 @@
 #define PREF_CUBEB_LATENCY_PLAYBACK "media.cubeb_latency_playback_ms"
 #define PREF_CUBEB_LATENCY_MSG "media.cubeb_latency_msg_frames"
 
+#define AC_MONO (1 << AudioConfig::CHANNEL_MONO)
+#define AC_MONO_LFE (AC_MONO | (1 << AudioConfig::CHANNEL_LFE))
+#define AC_STEREO ((1 << AudioConfig::CHANNEL_LEFT) | (1 << AudioConfig::CHANNEL_RIGHT))
+#define AC_STEREO_LFE (AC_STEREO | (1 << AudioConfig::CHANNEL_LFE))
+#define AC_3F (AC_STEREO | (1 << AudioConfig::CHANNEL_CENTER))
+#define AC_3F_LFE (AC_3F | (1 << AudioConfig::CHANNEL_LFE))
+#define AC_2F1 (AC_STEREO | (1 << AudioConfig::CHANNEL_RCENTER))
+#define AC_2F1_LFE (AC_2F1 | (1 << AudioConfig::CHANNEL_LFE))
+#define AC_3F1 (AC_3F | (1 < AudioConfig::CHANNEL_RCENTER))
+#define AC_3F1_LFE (AC_3F1 | (1 << AudioConfig::CHANNEL_LFE))
+#define AC_2F2 (AC_STEREO | (1 << AudioConfig::CHANNEL_LS) | (1 << AudioConfig::CHANNEL_RS))
+#define AC_2F2_LFE (AC_2F2 | (1 << AudioConfig::CHANNEL_LFE))
+#define AC_3F2 (AC_3F | (1 << AudioConfig::CHANNEL_LS) | (1 << AudioConfig::CHANNEL_RS))
+#define AC_3F2_LFE (AC_3F2 | (1 << AudioConfig::CHANNEL_LFE))
+#define AC_3F3R_LFE (AC_3F2_LFE | (1 << AudioConfig::CHANNEL_RCENTER))
+#define AC_3F4_LFE (AC_3F2_LFE | (1 << AudioConfig::CHANNEL_RLS) | (1 << AudioConfig::CHANNEL_RRS))
+
 namespace mozilla {
 
 namespace {
@@ -340,6 +357,31 @@ uint32_t MaxNumberOfChannels()
   }
 
   return 0;
+}
+
+cubeb_channel_layout ConvertChannelMapToCubebLayout(uint32_t aChannelMap)
+{
+  switch(aChannelMap) {
+    case AC_MONO: return CUBEB_LAYOUT_MONO;
+    case AC_MONO_LFE: return CUBEB_LAYOUT_MONO_LFE;
+    case AC_STEREO: return CUBEB_LAYOUT_STEREO;
+    case AC_STEREO_LFE: return CUBEB_LAYOUT_STEREO_LFE;
+    case AC_3F: return CUBEB_LAYOUT_3F;
+    case AC_3F_LFE: return CUBEB_LAYOUT_3F_LFE;
+    case AC_2F1: return CUBEB_LAYOUT_2F1;
+    case AC_2F1_LFE: return CUBEB_LAYOUT_2F1_LFE;
+    case AC_3F1: return CUBEB_LAYOUT_3F1;
+    case AC_3F1_LFE: return CUBEB_LAYOUT_3F1_LFE;
+    case AC_2F2: return CUBEB_LAYOUT_2F2;
+    case AC_2F2_LFE: return CUBEB_LAYOUT_2F2_LFE;
+    case AC_3F2: return CUBEB_LAYOUT_3F2;
+    case AC_3F2_LFE: return CUBEB_LAYOUT_3F2_LFE;
+    case AC_3F3R_LFE: return CUBEB_LAYOUT_3F3R_LFE;
+    case AC_3F4_LFE: return CUBEB_LAYOUT_3F4_LFE;
+    default:
+      NS_ERROR("The channel map is unsupported");
+      return CUBEB_LAYOUT_UNSUPPORTED;
+  }
 }
 
 #if defined(__ANDROID__) && defined(MOZ_B2G)
