@@ -69,7 +69,7 @@ DecodedAudioDataSink::DecodedAudioDataSink(AbstractThread* aThread,
   }
   MOZ_DIAGNOSTIC_ASSERT(mOutputRate, "output rate can't be 0.");
 
-#if defined(XP_WIN)
+#if defined(XP_WIN) || defined(XP_LINUX)
   // Only Window support multiple channel currently.
   mOutputChannels = MediaPrefs::MonoAudio() ?
     (MediaPrefs::AudioSinkForceStereo() ? 2 : 1) : mInfo.mChannels;

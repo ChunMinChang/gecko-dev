@@ -332,7 +332,7 @@ AudioStream::Init(uint32_t aNumChannels, uint32_t aChannelMap, uint32_t aRate,
   cubeb_stream_params params;
   params.rate = aRate;
   params.channels = mOutChannels;
-#if defined(XP_WIN)
+#if defined(XP_WIN) || defined(XP_LINUX)
   params.layout = CubebUtils::ConvertChannelMapToCubebLayout(aChannelMap);
   LOG("layout: %s\n", CUBEB_CHANNEL_LAYOUT_MAPS[params.layout].name);
 #else
