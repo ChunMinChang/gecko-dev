@@ -40,9 +40,9 @@ typedef UInt32  AudioFormatFlags;
 #define AU_OUT_BUS    0
 #define AU_IN_BUS     1
 
-#define PRINT_ERROR_CODE(str, r) do {                                \
-  LOG("System call failed: %s (rv: %d)", str, r);                    \
-} while(0)
+#define PRINT_ERROR_CODE(str, r) do {                           \
+    LOG("System call failed: %s (rv: %d)", str, (int) r);       \
+  } while(0)
 
 /* Testing empirically, some headsets report a minimal latency that is very
  * low, but this does not work in practice. Lie and say the minimum is 256
@@ -133,8 +133,8 @@ struct cubeb_stream {
   cubeb_state_callback state_callback = nullptr;
   cubeb_device_changed_callback device_changed_callback = nullptr;
   /* Stream creation parameters */
-  cubeb_stream_params input_stream_params = { CUBEB_SAMPLE_FLOAT32NE, 0, 0 };
-  cubeb_stream_params output_stream_params = { CUBEB_SAMPLE_FLOAT32NE, 0, 0 };
+  cubeb_stream_params input_stream_params = { CUBEB_SAMPLE_FLOAT32NE, 0, 0, CUBEB_LAYOUT_UNDEFINED };
+  cubeb_stream_params output_stream_params = { CUBEB_SAMPLE_FLOAT32NE, 0, 0, CUBEB_LAYOUT_UNDEFINED };
   bool is_default_input;
   AudioDeviceID input_device = 0;
   AudioDeviceID output_device = 0;
@@ -267,11 +267,12 @@ audiounit_render_input(cubeb_stream * stm,
   stm->input_linear_buffer->push(input_buffer_list.mBuffers[0].mData,
                                  input_frames * stm->input_desc.mChannelsPerFrame);
 
-  LOGV("(%p) input:  buffers %d, size %d, channels %d, frames %d.",
-       stm, input_buffer_list.mNumberBuffers,
-       input_buffer_list.mBuffers[0].mDataByteSize,
-       input_buffer_list.mBuffers[0].mNumberChannels,
-       input_frames);
+  LOGV("(%p) input:  buffers %u, size %u, channels %u, frames %d.",
+       stm,
+       (unsigned int) input_buffer_list.mNumberBuffers,
+       (unsigned int) input_buffer_list.mBuffers[0].mDataByteSize,
+       (unsigned int) input_buffer_list.mBuffers[0].mNumberChannels,
+       (unsigned int) input_frames);
 
   /* Advance input frame counter. */
   assert(input_frames > 0);
@@ -289,7 +290,6 @@ audiounit_input_callback(void * user_ptr,
                          AudioBufferList * /* bufs */)
 {
   cubeb_stream * stm = static_cast<cubeb_stream *>(user_ptr);
-  long outframes;
 
   assert(stm->input_unit != NULL);
   assert(AU_IN_BUS == bus);
@@ -323,15 +323,15 @@ audiounit_input_callback(void * user_ptr,
      Resampler will deliver input buffer in the correct rate. */
   assert(input_frames <= stm->input_linear_buffer->length() / stm->input_desc.mChannelsPerFrame);
   long total_input_frames = stm->input_linear_buffer->length() / stm->input_desc.mChannelsPerFrame;
-  outframes = cubeb_resampler_fill(stm->resampler.get(),
-                                   stm->input_linear_buffer->data(),
-                                   &total_input_frames,
-                                   NULL,
-                                   0);
+  long outframes = cubeb_resampler_fill(stm->resampler.get(),
+                                        stm->input_linear_buffer->data(),
+                                        &total_input_frames,
+                                        NULL,
+                                        0);
   // Reset input buffer
   stm->input_linear_buffer->clear();
 
-  if (outframes < 0 || outframes != input_frames) {
+  if (outframes < 0 || (UInt32) outframes != input_frames) {
     stm->shutdown = true;
     return noErr;
   }
@@ -375,12 +375,14 @@ audiounit_output_callback(void * user_ptr,
 
   stm->output_callback_in_a_row++;
 
-  LOGV("(%p) output: buffers %d, size %d, channels %d, frames %d.",
-       stm, outBufferList->mNumberBuffers,
-       outBufferList->mBuffers[0].mDataByteSize,
-       outBufferList->mBuffers[0].mNumberChannels, output_frames);
+  LOGV("(%p) output: buffers %u, size %u, channels %u, frames %u.",
+       stm,
+       (unsigned int) outBufferList->mNumberBuffers,
+       (unsigned int) outBufferList->mBuffers[0].mDataByteSize,
+       (unsigned int) outBufferList->mBuffers[0].mNumberChannels,
+       (unsigned int) output_frames);
 
-  long outframes = 0, input_frames = 0;
+  long input_frames = 0;
   void * output_buffer = NULL, * input_buffer = NULL;
 
   if (stm->shutdown) {
@@ -419,11 +421,11 @@ audiounit_output_callback(void * user_ptr,
   }
 
   /* Call user callback through resampler. */
-  outframes = cubeb_resampler_fill(stm->resampler.get(),
-                                   input_buffer,
-                                   input_buffer ? &input_frames : NULL,
-                                   output_buffer,
-                                   output_frames);
+  long outframes = cubeb_resampler_fill(stm->resampler.get(),
+                                        input_buffer,
+                                        input_buffer ? &input_frames : NULL,
+                                        output_buffer,
+                                        output_frames);
 
   if (input_buffer) {
     stm->input_linear_buffer->pop(input_frames * stm->input_desc.mChannelsPerFrame);
@@ -435,7 +437,7 @@ audiounit_output_callback(void * user_ptr,
   }
 
   size_t outbpf = stm->output_desc.mBytesPerFrame;
-  stm->draining = outframes < output_frames;
+  stm->draining = (UInt32) outframes < output_frames;
   stm->frames_played = stm->frames_queued;
   stm->frames_queued += outframes;
 
@@ -547,23 +549,23 @@ audiounit_property_listener_callback(AudioObjectID /* id */, UInt32 address_coun
   // Note if the stream was running or not
   was_running = !stm->shutdown;
 
-  LOG("(%p) Audio device changed, %d events.", stm, address_count);
+  LOG("(%p) Audio device changed, %u events.", stm, (unsigned int) address_count);
   for (UInt32 i = 0; i < address_count; i++) {
     switch(addresses[i].mSelector) {
       case kAudioHardwarePropertyDefaultOutputDevice: {
-          LOG("Event[%d] - mSelector == kAudioHardwarePropertyDefaultOutputDevice", i);
+          LOG("Event[%u] - mSelector == kAudioHardwarePropertyDefaultOutputDevice", (unsigned int) i);
           // Allow restart to choose the new default
           stm->output_device = 0;
         }
         break;
       case kAudioHardwarePropertyDefaultInputDevice: {
-          LOG("Event[%d] - mSelector == kAudioHardwarePropertyDefaultInputDevice", i);
+          LOG("Event[%u] - mSelector == kAudioHardwarePropertyDefaultInputDevice", (unsigned int) i);
           // Allow restart to choose the new default
           stm->input_device = 0;
         }
       break;
       case kAudioDevicePropertyDeviceIsAlive: {
-          LOG("Event[%d] - mSelector == kAudioDevicePropertyDeviceIsAlive", i);
+          LOG("Event[%u] - mSelector == kAudioDevicePropertyDeviceIsAlive", (unsigned int) i);
           // If this is the default input device ignore the event,
           // kAudioHardwarePropertyDefaultInputDevice will take care of the switch
           if (stm->is_default_input) {
@@ -575,7 +577,7 @@ audiounit_property_listener_callback(AudioObjectID /* id */, UInt32 address_coun
         }
         break;
       case kAudioDevicePropertyDataSource:
-        LOG("Event[%d] - mSelector == kAudioHardwarePropertyDataSource", i);
+        LOG("Event[%u] - mSelector == kAudioHardwarePropertyDataSource", (unsigned int) i);
         break;
     }
   }
@@ -2294,6 +2296,7 @@ cubeb_ops const audiounit_ops = {
   /*.get_max_channel_count =*/ audiounit_get_max_channel_count,
   /*.get_min_latency =*/ audiounit_get_min_latency,
   /*.get_preferred_sample_rate =*/ audiounit_get_preferred_sample_rate,
+  /*.get_preferred_channel_layout =*/ nullptr,
   /*.enumerate_devices =*/ audiounit_enumerate_devices,
   /*.destroy =*/ audiounit_destroy,
   /*.stream_init =*/ audiounit_stream_init,
