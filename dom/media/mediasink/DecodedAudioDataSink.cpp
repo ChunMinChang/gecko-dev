@@ -69,10 +69,16 @@ DecodedAudioDataSink::DecodedAudioDataSink(AbstractThread* aThread,
   }
   MOZ_DIAGNOSTIC_ASSERT(mOutputRate, "output rate can't be 0.");
 
+#if defined(XP_WIN)
+  // Only Window support multiple channel currently.
+  mOutputChannels = MediaPrefs::MonoAudio() ?
+    (MediaPrefs::AudioSinkForceStereo() ? 2 : 1) : mInfo.mChannels;
+#else
   bool monoAudioEnabled = MediaPrefs::MonoAudio();
 
   mOutputChannels = monoAudioEnabled
     ? 1 : (MediaPrefs::AudioSinkForceStereo() ? 2 : mInfo.mChannels);
+#endif
 }
 
 DecodedAudioDataSink::~DecodedAudioDataSink()
@@ -195,7 +201,10 @@ nsresult
 DecodedAudioDataSink::InitializeAudioStream(const PlaybackParams& aParams)
 {
   mAudioStream = new AudioStream(*this);
-  nsresult rv = mAudioStream->Init(mOutputChannels, mOutputRate, mChannel);
+  nsresult rv = mAudioStream->Init(mOutputChannels,
+                                   mConverter->OutputConfig().Layout().Map(),
+                                   mOutputRate,
+                                   mChannel);
   if (NS_FAILED(rv)) {
     mAudioStream->Shutdown();
     mAudioStream = nullptr;

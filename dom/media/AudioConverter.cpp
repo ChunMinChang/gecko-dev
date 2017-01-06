@@ -65,11 +65,15 @@ AudioConverter::CanWorkInPlace() const
 size_t
 AudioConverter::ProcessInternal(void* aOut, const void* aIn, size_t aFrames)
 {
+#if !defined(XP_WIN)
   if (mIn.Channels() > mOut.Channels()) {
     return DownmixAudio(aOut, aIn, aFrames);
   } else if (mIn.Channels() < mOut.Channels()) {
     return UpmixAudio(aOut, aIn, aFrames);
-  } else if (mIn.Layout() != mOut.Layout() && CanReorderAudio()) {
+  }
+  // The downmix/upmix will be handled in cubeb on Windows.
+#endif
+  if (mIn.Layout() != mOut.Layout() && CanReorderAudio()) {
     ReOrderInterleavedChannels(aOut, aIn, aFrames);
   } else if (aIn != aOut) {
     memmove(aOut, aIn, FramesOutToBytes(aFrames));
