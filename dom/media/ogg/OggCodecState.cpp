@@ -15,6 +15,7 @@
 #include "OpusDecoder.h"
 #include "OpusParser.h"
 #include "VideoUtils.h"
+#include "VorbisDecoder.h" // For VorbisLayout
 #include "XiphExtradata.h"
 #include "nsDebug.h"
 #include "opus/opus_multistream.h"
@@ -770,6 +771,9 @@ VorbisState::Init()
   mInfo.mRate = mVorbisInfo.rate;
   mInfo.mChannels = mVorbisInfo.channels;
   mInfo.mBitDepth = 16;
+  mInfo.mLayout =
+    AudioConfig::ChannelLayout(mInfo.mChannels,
+                               VorbisDataDecoder::VorbisLayout(mInfo.mChannels));
 
   return true;
 }
@@ -1054,6 +1058,9 @@ OpusState::Init(void)
   mInfo.mRate = mParser->mRate;
   mInfo.mChannels = mParser->mChannels;
   mInfo.mBitDepth = 16;
+  mInfo.mLayout =
+    AudioConfig::ChannelLayout(mInfo.mChannels,
+                               VorbisDataDecoder::VorbisLayout(mInfo.mChannels));
   // Save preskip & the first header packet for the Opus decoder
   OpusDataDecoder::AppendCodecDelay(mInfo.mCodecSpecificConfig,
                                     Time(0, mParser->mPreSkip));
@@ -1890,4 +1897,3 @@ SkeletonState::DecodeHeader(OggPacketPtr aPacket)
 }
 
 } // namespace mozilla
-
