@@ -580,7 +580,13 @@ AudioStream::GetTimeStretched(AudioBufferWriter& aWriter)
     } else {
       // Write silence if invalid format.
       AutoTArray<AudioDataValue, 1000> buf;
-      buf.SetLength(mOutChannels * c->Frames());
+      auto size = CheckedUint32(mOutChannels) * c->Frames();
+      if (!size.isValid()) {
+        // The overflow should not happen in normal case.
+        LOGW("Invalid member data: %d channels, %d frames", mOutChannels, c->Frames());
+        return;
+      }
+      buf.SetLength(size.value());
       memset(buf.Elements(), 0, buf.Length() * sizeof(AudioDataValue));
       mTimeStretcher->putSamples(buf.Elements(), c->Frames());
     }
