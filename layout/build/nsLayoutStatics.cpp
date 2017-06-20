@@ -100,6 +100,9 @@
 #include "CubebUtils.h"
 #include "Latency.h"
 #include "WebAudioUtils.h"
+#ifdef XP_WIN
+#include <mmdeviceapi.h> // for IMMNotificationClient interface
+#endif
 
 #include "nsError.h"
 
@@ -135,6 +138,132 @@ using namespace mozilla::dom;
 using namespace mozilla::dom::ipc;
 
 nsrefcnt nsLayoutStatics::sLayoutStaticRefcnt = 0;
+
+#ifdef XP_WIN
+class AudioNotification: public IMMNotificationClient
+{
+public:
+  AudioNotification()
+    : mRefCt(1)
+    , mIsRegistered(false)
+  {
+    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator),
+                                  NULL, CLSCTX_INPROC_SERVER,
+                                  IID_PPV_ARGS(&mDeviceEnumerator));
+
+    if (FAILED(hr)) {
+      mDeviceEnumerator = nullptr;
+      return;
+    }
+
+    hr = mDeviceEnumerator->RegisterEndpointNotificationCallback(this);
+    if (FAILED(hr)) {
+      mDeviceEnumerator->Release();
+      mDeviceEnumerator = nullptr;
+      return;
+    }
+
+    mIsRegistered = true;
+  }
+
+  ~AudioNotification()
+  {
+    // If mDeviceEnumerator exists, it must be registered.
+    MOZ_ASSERT(!!mIsRegistered == !!mDeviceEnumerator);
+    if (!mDeviceEnumerator) {
+      return;
+    }
+
+    HRESULT hr = mDeviceEnumerator->UnregisterEndpointNotificationCallback(this);
+    if (FAILED(hr)) {
+      // We can't really do anything here.
+    }
+
+    mDeviceEnumerator->Release();
+    mDeviceEnumerator = nullptr;
+
+    mIsRegistered = false;
+  }
+
+  // True whenever the notification server is set to report events to this object.
+  bool IsRegistered()
+  {
+    return mIsRegistered;
+  }
+
+  // IMMNotificationClient Implementation
+  HRESULT STDMETHODCALLTYPE
+  OnDefaultDeviceChanged(EDataFlow aFlow, ERole aRole, LPCWSTR aDeviceId) override
+  {
+    return S_OK;
+  }
+
+  // The remaining methods are not implemented.
+  HRESULT STDMETHODCALLTYPE
+  OnDeviceAdded(LPCWSTR aDeviceId) override
+  {
+    return S_OK;
+  };
+
+  HRESULT STDMETHODCALLTYPE
+  OnDeviceRemoved(LPCWSTR aDeviceId) override
+  {
+    return S_OK;
+  }
+
+  HRESULT STDMETHODCALLTYPE
+  OnDeviceStateChanged(LPCWSTR aDeviceId, DWORD aNewState) override
+  {
+    return S_OK;
+  }
+
+  HRESULT STDMETHODCALLTYPE
+  OnPropertyValueChanged(LPCWSTR aDeviceId, const PROPERTYKEY aKey) override
+  {
+    return S_OK;
+  }
+
+  // IUnknown Implementation
+  ULONG STDMETHODCALLTYPE
+  AddRef() override
+  {
+    return InterlockedIncrement(&mRefCt);
+  }
+
+  ULONG STDMETHODCALLTYPE
+  Release() override
+  {
+    ULONG ulRef = InterlockedDecrement(&mRefCt);
+    if (0 == ulRef) {
+      delete this;
+    }
+    return ulRef;
+  }
+
+  HRESULT STDMETHODCALLTYPE
+  QueryInterface(REFIID riid, VOID **ppvInterface) override
+  {
+    if (__uuidof(IUnknown) == riid) {
+      AddRef();
+      *ppvInterface = (IUnknown*)this;
+    } else if (__uuidof(IMMNotificationClient) == riid) {
+      AddRef();
+      *ppvInterface = (IMMNotificationClient*)this;
+    } else {
+      *ppvInterface = NULL;
+      return E_NOINTERFACE;
+    }
+    return S_OK;
+  }
+
+private:
+  IMMDeviceEnumerator* mDeviceEnumerator;
+  LONG mRefCt;
+  bool mIsRegistered;
+}; // class AudioNotification
+
+static AudioNotification* sAudioNotification = nullptr;
+#endif
 
 nsresult
 nsLayoutStatics::Initialize()
@@ -258,6 +387,15 @@ nsLayoutStatics::Initialize()
   AsyncLatencyLogger::InitializeStatics();
   MediaManager::StartupInit();
   CubebUtils::InitLibrary();
+#ifdef XP_WIN
+  if (XRE_IsContentProcess() && !sAudioNotification) {
+    sAudioNotification = new AudioNotification();
+    if (!sAudioNotification->IsRegistered()) {
+      sAudioNotification->Release();
+      sAudioNotification = nullptr;
+    }
+  }
+#endif
 
   nsContentSink::InitializeStatics();
   nsHtml5Module::InitializeStatics();
