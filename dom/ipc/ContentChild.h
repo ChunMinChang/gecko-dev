@@ -236,6 +236,10 @@ public:
 
   virtual mozilla::ipc::IPCResult RecvPTestShellConstructor(PTestShellChild*) override;
 
+  virtual PAudioChild* AllocPAudioChild() override;
+
+  virtual bool DeallocPAudioChild(PAudioChild*) override;
+
   virtual PScriptCacheChild*
   AllocPScriptCacheChild(const FileDescOrError& cacheFile,
                          const bool& wantCacheData) override;

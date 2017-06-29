@@ -78,6 +78,10 @@ class TestShellParent;
 class CrashReporterHost;
 } // namespace ipc
 
+namespace audio {
+class AudioParent;
+}
+
 namespace jsipc {
 class PJavaScriptParent;
 } // namespace jsipc
@@ -112,6 +116,7 @@ class ContentParent final : public PContentParent
                           , public gfx::GPUProcessListener
                           , public mozilla::MemoryReportingProcess
 {
+  typedef mozilla::audio::AudioParent AudioParent;
   typedef mozilla::ipc::GeckoChildProcessHost GeckoChildProcessHost;
   typedef mozilla::ipc::OptionalURIParams OptionalURIParams;
   typedef mozilla::ipc::PFileDescriptorSetParent PFileDescriptorSetParent;
@@ -893,6 +898,10 @@ private:
   virtual PTestShellParent* AllocPTestShellParent() override;
 
   virtual bool DeallocPTestShellParent(PTestShellParent* shell) override;
+
+  virtual PAudioParent* AllocPAudioParent() override;
+
+  virtual bool DeallocPAudioParent(PAudioParent* shell) override;
 
   virtual PScriptCacheParent*
   AllocPScriptCacheParent(const FileDescOrError& cacheFile,

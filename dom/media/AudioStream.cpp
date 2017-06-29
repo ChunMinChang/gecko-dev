@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include "mozilla/audio/AudioChild.h"
 #include "mozilla/Logging.h"
 #include "prdtoa.h"
 #include "AudioStream.h"
@@ -363,6 +364,9 @@ AudioStream::OpenCubeb(cubeb* aContext, cubeb_stream_params& aParams,
                        TimeStamp aStartTime, bool aIsFirst)
 {
   MOZ_ASSERT(aContext);
+
+  // Build the IPC to receieve the device-changed notification.
+  audio::AudioChild::BuildAudioChannel();
 
   cubeb_stream* stream = nullptr;
   /* Convert from milliseconds to frames. */

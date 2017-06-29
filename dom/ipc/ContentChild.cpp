@@ -14,6 +14,7 @@
 #include "TabChild.h"
 #include "HandlerServiceChild.h"
 
+#include "mozilla/audio/AudioChild.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/LookAndFeel.h"
 #include "mozilla/Preferences.h"
@@ -1826,6 +1827,22 @@ mozilla::ipc::IPCResult
 ContentChild::RecvPTestShellConstructor(PTestShellChild* actor)
 {
   return IPC_OK();
+}
+
+audio::PAudioChild*
+ContentChild::AllocPAudioChild()
+{
+  printf_stderr("====> AllocPAudioChild\n!");
+  return new audio::AudioChild();
+}
+
+
+bool
+ContentChild::DeallocPAudioChild(audio::PAudioChild* aActor)
+{
+  printf_stderr("====> DeallocPAudioChild\n!");
+  delete aActor;
+  return true;
 }
 
 PScriptCacheChild*

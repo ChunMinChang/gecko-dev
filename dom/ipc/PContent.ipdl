@@ -4,6 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+include protocol PAudio;
 include protocol PBackground;
 include protocol PBrowser;
 include protocol PCompositorBridge;
@@ -279,6 +280,7 @@ struct XPCOMInitData
  */
 nested(upto inside_cpow) sync protocol PContent
 {
+    manages PAudio;
     manages PBrowser;
     manages PContentPermissionRequest;
     manages PCycleCollectWithLogs;
@@ -734,6 +736,8 @@ parent:
     nested(inside_cpow) async PStorage();
 
     async PMedia();
+
+    async PAudio();
 
     async PWebrtcGlobal();
 

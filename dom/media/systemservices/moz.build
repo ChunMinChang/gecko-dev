@@ -73,7 +73,13 @@ EXPORTS.mozilla.media += ['CamerasTypes.h',
                           'MediaTaskUtils.h',
                           'MediaUtils.h',
 ]
+EXPORTS.mozilla.audio += [
+    'AudioChild.h',
+    'AudioParent.h'
+]
 UNIFIED_SOURCES += [
+    'AudioChild.cpp',
+    'AudioParent.cpp',
     'MediaChild.cpp',
     'MediaParent.cpp',
     'MediaSystemResourceClient.cpp',
@@ -84,6 +90,7 @@ UNIFIED_SOURCES += [
     'MediaUtils.cpp',
 ]
 IPDL_SOURCES += [
+    'PAudio.ipdl',
     'PCameras.ipdl',
     'PMedia.ipdl',
     'PMediaSystemResourceManager.ipdl',

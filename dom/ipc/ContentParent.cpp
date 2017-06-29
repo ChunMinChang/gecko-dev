@@ -23,6 +23,7 @@
 
 #include "chrome/common/process_watcher.h"
 
+#include "mozilla/audio/AudioParent.h"
 #include "mozilla/a11y/PDocAccessible.h"
 #include "GeckoProfiler.h"
 #include "GMPServiceParent.h"
@@ -3085,6 +3086,21 @@ bool
 ContentParent::DeallocPTestShellParent(PTestShellParent* shell)
 {
   delete shell;
+  return true;
+}
+
+audio::PAudioParent*
+ContentParent::AllocPAudioParent()
+{
+  printf_stderr("====> AllocPAudioParent\n!");
+  return new audio::AudioParent();
+}
+
+bool
+ContentParent::DeallocPAudioParent(audio::PAudioParent* aActor)
+{
+  printf_stderr("====> DeallocPAudioParent\n!");
+  delete aActor;
   return true;
 }
 
