@@ -8,6 +8,9 @@
 #include <string.h>
 #include "mozilla/Logging.h"
 #include "prdtoa.h"
+#ifdef XP_WIN
+#include "mozilla/audio/AudioNotificationReceiver.h"
+#endif
 #include "AudioStream.h"
 #include "VideoUtils.h"
 #include "mozilla/Monitor.h"
@@ -386,6 +389,12 @@ AudioStream::OpenCubeb(cubeb* aContext, cubeb_stream_params& aParams,
   Telemetry::Accumulate(aIsFirst ? Telemetry::AUDIOSTREAM_FIRST_OPEN_MS :
       Telemetry::AUDIOSTREAM_LATER_OPEN_MS, timeDelta.ToMilliseconds());
 
+#ifdef XP_WIN
+  if (XRE_IsContentProcess()) {
+    audio::AudioNotificationReceiver::Register(this);
+  }
+#endif
+
   return NS_OK;
 }
 
@@ -470,6 +479,12 @@ AudioStream::Shutdown()
     // call our callback after Pause()/stop()!?! Bug 996162
     mCubebStream.reset();
   }
+
+#ifdef XP_WIN
+  if (XRE_IsContentProcess()) {
+    audio::AudioNotificationReceiver::Unregister(this);
+  }
+#endif
 
   mState = SHUTDOWN;
 }

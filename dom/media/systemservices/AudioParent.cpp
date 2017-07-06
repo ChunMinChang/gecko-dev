@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "AudioParent.h"
+#include "mozilla/audio/AudioNotificationSender.h"
 
 namespace mozilla {
 namespace audio {
@@ -12,10 +13,12 @@ namespace audio {
 AudioParent::AudioParent()
 {
   MOZ_COUNT_CTOR(AudioParent);
+  nsresult r = AudioNotificationSender::Register(this);
 }
 
 AudioParent::~AudioParent()
 {
+  AudioNotificationSender::Unregister(this);
   MOZ_COUNT_DTOR(AudioParent);
 }
 

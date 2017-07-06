@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "AudioChild.h"
+#include "mozilla/audio/AudioNotificationReceiver.h"
 #include "mozilla/dom/ContentChild.h"
 
 namespace mozilla {
@@ -25,6 +26,7 @@ AudioChild::GetSingleton()
 mozilla::ipc::IPCResult
 AudioChild::RecvDefaultDeviceChange()
 {
+  AudioNotificationReceiver::NotifyDefaultDeviceChanged();
   return IPC_OK();
 }
 
