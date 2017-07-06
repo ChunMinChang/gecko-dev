@@ -174,6 +174,7 @@
 #ifdef XP_WIN
 #include <process.h>
 #define getpid _getpid
+#include "mozilla/audio/AudioChild.h"
 #include "mozilla/widget/AudioSession.h"
 #endif
 
@@ -2087,6 +2088,28 @@ bool
 ContentChild::DeallocPMediaChild(media::PMediaChild *aActor)
 {
   return media::DeallocPMediaChild(aActor);
+}
+
+audio::PAudioChild*
+ContentChild::AllocPAudioChild()
+{
+#ifdef XP_WIN
+  return new audio::AudioChild();
+#else
+  return nullptr;
+#endif
+}
+
+
+bool
+ContentChild::DeallocPAudioChild(audio::PAudioChild* aActor)
+{
+#ifdef XP_WIN
+  delete aActor;
+  return true;
+#else
+  return false;
+#endif
 }
 
 PStorageChild*

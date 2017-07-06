@@ -242,6 +242,7 @@
 #endif
 
 #ifdef XP_WIN
+#include "mozilla/audio/AudioParent.h"
 #include "mozilla/widget/AudioSession.h"
 #endif
 
@@ -3338,6 +3339,27 @@ bool
 ContentParent::DeallocPMediaParent(media::PMediaParent *aActor)
 {
   return media::DeallocPMediaParent(aActor);
+}
+
+audio::PAudioParent*
+ContentParent::AllocPAudioParent()
+{
+#ifdef XP_WIN
+  return new audio::AudioParent();
+#else
+  return nullptr;
+#endif
+}
+
+bool
+ContentParent::DeallocPAudioParent(audio::PAudioParent* aActor)
+{
+#ifdef XP_WIN
+  delete aActor;
+  return true;
+#else
+  return false;
+#endif
 }
 
 PStorageParent*

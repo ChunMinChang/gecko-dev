@@ -295,6 +295,10 @@ public:
 
   virtual bool DeallocPMediaChild(PMediaChild* aActor) override;
 
+  virtual PAudioChild* AllocPAudioChild() override;
+
+  virtual bool DeallocPAudioChild(PAudioChild* aActor) override;
+
   virtual PStorageChild* AllocPStorageChild() override;
 
   virtual bool DeallocPStorageChild(PStorageChild* aActor) override;

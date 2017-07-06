@@ -55,6 +55,17 @@ if CONFIG['_MSC_VER']:
 
 EXPORTS.mozilla += ['ShmemPool.h',]
 
+if CONFIG['OS_TARGET'] == 'WINNT':
+    EXPORTS.mozilla.audio += [
+        'AudioChild.h',
+        'AudioParent.h'
+    ]
+
+    UNIFIED_SOURCES += [
+        'AudioChild.cpp',
+        'AudioParent.cpp',
+    ]
+
 EXPORTS.mozilla.media += ['CamerasTypes.h',
                           'DeviceChangeCallback.h',
                           'MediaChild.h',
@@ -80,6 +91,7 @@ UNIFIED_SOURCES += [
     'MediaUtils.cpp',
 ]
 IPDL_SOURCES += [
+    'PAudio.ipdl',
     'PCameras.ipdl',
     'PMedia.ipdl',
     'PMediaSystemResourceManager.ipdl',
