@@ -23,6 +23,7 @@
 
 #include "chrome/common/process_watcher.h"
 
+#include "mozilla/audio/AudioParent.h"
 #include "mozilla/a11y/PDocAccessible.h"
 #include "GeckoProfiler.h"
 #include "GMPServiceParent.h"
@@ -3338,6 +3339,19 @@ bool
 ContentParent::DeallocPMediaParent(media::PMediaParent *aActor)
 {
   return media::DeallocPMediaParent(aActor);
+}
+
+audio::PAudioParent*
+ContentParent::AllocPAudioParent()
+{
+  return new audio::AudioParent();
+}
+
+bool
+ContentParent::DeallocPAudioParent(audio::PAudioParent* aActor)
+{
+  delete aActor;
+  return true;
 }
 
 PStorageParent*

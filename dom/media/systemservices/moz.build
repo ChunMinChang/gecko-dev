@@ -55,6 +55,11 @@ if CONFIG['_MSC_VER']:
 
 EXPORTS.mozilla += ['ShmemPool.h',]
 
+EXPORTS.mozilla.audio += [
+    'AudioChild.h',
+    'AudioParent.h'
+]
+
 EXPORTS.mozilla.media += ['CamerasTypes.h',
                           'DeviceChangeCallback.h',
                           'MediaChild.h',
@@ -70,6 +75,8 @@ EXPORTS.mozilla.media += ['CamerasTypes.h',
                           'MediaUtils.h',
 ]
 UNIFIED_SOURCES += [
+    'AudioChild.cpp',
+    'AudioParent.cpp',
     'MediaChild.cpp',
     'MediaParent.cpp',
     'MediaSystemResourceClient.cpp',
@@ -80,6 +87,7 @@ UNIFIED_SOURCES += [
     'MediaUtils.cpp',
 ]
 IPDL_SOURCES += [
+    'PAudio.ipdl',
     'PCameras.ipdl',
     'PMedia.ipdl',
     'PMediaSystemResourceManager.ipdl',

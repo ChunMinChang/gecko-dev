@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include "mozilla/audio/AudioChild.h" // for AudioChild
+#include "nsAppRunner.h"              // for XRE_IsContentProcess
+#include "mozilla/RefPtr.h"           // for RefPtr
 #include "mozilla/Logging.h"
 #include "prdtoa.h"
 #include "AudioStream.h"
@@ -111,6 +114,24 @@ private:
   double mBasePosition;
 };
 
+// IPC task should be done in worker-thread.
+class AudioIPCRunnable : public Runnable
+{
+public:
+  explicit AudioIPCRunnable(): Runnable("AudioIPCRunnable")
+  {}
+
+  NS_IMETHOD Run() override
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+    audio::AudioChild* child = audio::AudioChild::GetSingleton();
+    if (!child) {
+      return NS_ERROR_NOT_INITIALIZED;
+    }
+    return child->SendPing() ? NS_OK : NS_ERROR_FAILURE;
+  }
+}; // AudioIPCRunnable
+
 AudioStream::AudioStream(DataSource& aSource)
   : mMonitor("AudioStream")
   , mChannels(0)
@@ -120,6 +141,8 @@ AudioStream::AudioStream(DataSource& aSource)
   , mState(INITIALIZED)
   , mDataSource(aSource)
 {
+  RefPtr<AudioIPCRunnable> runnable = new AudioIPCRunnable();
+  NS_DispatchToMainThread(runnable);
 }
 
 AudioStream::~AudioStream()

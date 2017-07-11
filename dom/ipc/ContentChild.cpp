@@ -14,6 +14,7 @@
 #include "TabChild.h"
 #include "HandlerServiceChild.h"
 
+#include "mozilla/audio/AudioChild.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/LookAndFeel.h"
 #include "mozilla/Preferences.h"
@@ -2087,6 +2088,19 @@ bool
 ContentChild::DeallocPMediaChild(media::PMediaChild *aActor)
 {
   return media::DeallocPMediaChild(aActor);
+}
+
+audio::PAudioChild*
+ContentChild::AllocPAudioChild()
+{
+  return new audio::AudioChild();
+}
+
+bool
+ContentChild::DeallocPAudioChild(audio::PAudioChild* aActor)
+{
+  delete aActor;
+  return true;
 }
 
 PStorageChild*
