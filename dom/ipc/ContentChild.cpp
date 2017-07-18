@@ -1340,6 +1340,12 @@ ContentChild::RecvReinitRendering(Endpoint<PCompositorManagerChild>&& aComposito
 }
 
 mozilla::ipc::IPCResult
+ContentChild::RecvAudioDefaultDeviceChange()
+{
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult
 ContentChild::RecvReinitRenderingForDeviceReset()
 {
   gfxPlatform::GetPlatform()->CompositorUpdated();
