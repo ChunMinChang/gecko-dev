@@ -2475,6 +2475,7 @@ void
 MediaDecoderStateMachine::
 DecodingState::HandleEndOfAudio()
 {
+  SLOG("DecodingState::HandleEndOfAudio");
   AudioQueue().Finish();
   if (!mMaster->IsVideoDecoding()) {
     SetState<CompletedState>();
@@ -3283,6 +3284,7 @@ RefPtr<MediaDecoder::SeekPromise>
 MediaDecoderStateMachine::Seek(const SeekTarget& aTarget)
 {
   MOZ_ASSERT(OnTaskQueue());
+  LOG("aTarget=(%" PRId64 ")", aTarget.GetTime().ToMicroseconds());
 
   // We need to be able to seek in some way
   if (!mMediaSeekable && !mMediaSeekableOnlyInBufferedRanges) {
