@@ -622,6 +622,7 @@ AudioStream::GetTimeStretched(AudioBufferWriter& aWriter)
 long
 AudioStream::DataCallback(void* aBuffer, long aFrames)
 {
+  LOG("DataCallback, aFrames=%" PRId64, aFrames);
   MonitorAutoLock mon(mMonitor);
   MOZ_ASSERT(mState != SHUTDOWN, "No data callback after shutdown");
 
