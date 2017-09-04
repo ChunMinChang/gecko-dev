@@ -44,10 +44,11 @@ class AudioSinkWrapper : public MediaSink {
   };
 
 public:
-  template <typename Function>
-  AudioSinkWrapper(AbstractThread* aOwnerThread, const Function& aFunc)
+  template <typename Function, typename Function2>
+  AudioSinkWrapper(AbstractThread* aOwnerThread, const Function& aFunc, const Function2& aFunc2)
     : mOwnerThread(aOwnerThread)
     , mCreator(new CreatorImpl<Function>(aFunc))
+    , mPreCreator(new CreatorImpl<Function2>(aFunc2))
     , mIsStarted(false)
     // Give an invalid value to facilitate debug if used before playback starts.
     , mPlayDuration(TimeUnit::Invalid())
@@ -67,6 +68,7 @@ public:
   void SetPreservesPitch(bool aPreservesPitch) override;
   void SetPlaying(bool aPlaying) override;
 
+  void PreInit(const MediaInfo& aInfo) override;
   void Start(const TimeUnit& aStartTime, const MediaInfo& aInfo) override;
   void Stop() override;
   bool IsStarted() const override;
@@ -87,7 +89,9 @@ private:
 
   const RefPtr<AbstractThread> mOwnerThread;
   UniquePtr<Creator> mCreator;
+  UniquePtr<Creator> mPreCreator;
   UniquePtr<AudioSink> mAudioSink;
+  UniquePtr<AudioSink> mPreAudioSink;
   RefPtr<GenericPromise> mEndPromise;
 
   bool mIsStarted;

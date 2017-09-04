@@ -675,6 +675,7 @@ public:
 
     // Start playback if necessary so that the clock can be properly queried.
     if (!mIsPrerolling) {
+      SLOG("!!! Steop into DecodingState, Prerolling is finished. MaybeStartPlayback!");
       mMaster->MaybeStartPlayback();
     }
 
@@ -2075,6 +2076,7 @@ public:
 
     if (DonePrerollingAudio()) {
       SLOG("*** Prerolling finishes in advance!");
+      mMaster->PreInitAudioSink();
       return;
     }
 
@@ -2085,6 +2087,7 @@ public:
   {
     SLOG("> HandleAudioDecoded");
     PreAudioQueue().Finish();
+    mMaster->PreInitAudioSink();
   }
 
 private:
@@ -2874,7 +2877,21 @@ MediaDecoderStateMachine::CreateAudioSink()
       &MediaDecoderStateMachine::AudioAudibleChanged);
     return audioSink;
   };
-  return new AudioSinkWrapper(mTaskQueue, audioSinkCreator);
+
+  auto audioSinkPreCreator = [self]() {
+    MOZ_ASSERT(self->OnTaskQueue());
+    AudioSink* audioSink = new AudioSink(
+      self->mTaskQueue, self->mAudioQueue,
+      TimeUnit::Zero(),
+      self->Info().mAudio);
+
+    self->mAudibleListener = audioSink->AudibleEvent().Connect(
+      self->mTaskQueue, self.get(),
+      &MediaDecoderStateMachine::AudioAudibleChanged);
+    return audioSink;
+  };
+
+  return new AudioSinkWrapper(mTaskQueue, audioSinkCreator, audioSinkPreCreator);
 }
 
 already_AddRefed<media::MediaSink>
@@ -3454,6 +3471,12 @@ MediaDecoderStateMachine::StartMediaSink()
       ->Track(mMediaSinkVideoPromise);
     }
   }
+}
+
+void MediaDecoderStateMachine::PreInitAudioSink()
+{
+  LOG("> %s", __func__);
+  mMediaSink->PreInit(Info());
 }
 
 bool

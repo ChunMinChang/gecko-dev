@@ -1,3 +1,4 @@
+#include "AudioSink.h"
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* vim:set ts=2 sw=2 sts=2 et cindent: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
@@ -79,6 +80,7 @@ AudioSink::~AudioSink()
 RefPtr<GenericPromise>
 AudioSink::Init(const PlaybackParams& aParams)
 {
+  SINK_LOG(">> %s", __func__);
   MOZ_ASSERT(mOwnerThread->IsCurrentThreadIn());
 
   mAudioQueueListener = mAudioQueue.PushEvent().Connect(
@@ -97,6 +99,36 @@ AudioSink::Init(const PlaybackParams& aParams)
     mEndPromise.Reject(rv, __func__);
   }
   return p;
+}
+
+nsresult AudioSink::PreInitializeAudioStream(const PlaybackParams & aParams)
+{
+  SINK_LOG(">> %s", __func__);
+  mPreAudioStream = new AudioStream(*this);
+  // When AudioQueue is empty, there is no way to know the channel layout of
+  // the coming audio data, so we use the predefined channel map instead.
+  uint32_t channelMap = mConverter
+    ? mConverter->OutputConfig().Layout().Map()
+    : AudioStream::GetPreferredChannelMap(mOutputChannels);
+  // The layout map used here is already processed by mConverter with
+  // mOutputChannels into SMPTE format, so there is no need to worry if
+  // MediaPrefs::MonoAudio() or MediaPrefs::AudioSinkForceStereo() is applied.
+  nsresult rv = mPreAudioStream->Init(mOutputChannels, channelMap, mOutputRate);
+  if (NS_FAILED(rv)) {
+    mPreAudioStream->Shutdown();
+    mPreAudioStream = nullptr;
+    return rv;
+  }
+
+  // Set playback params before calling Start() so they can take effect
+  // as soon as the 1st DataCallback of the AudioStream fires.
+  mPreAudioStream->SetVolume(aParams.mVolume);
+  mPreAudioStream->SetPlaybackRate(aParams.mPlaybackRate);
+  mPreAudioStream->SetPreservesPitch(aParams.mPreservesPitch);
+
+  SINK_LOG(">>>> Finish pre-initializing audio stream");
+
+  return NS_OK;
 }
 
 TimeUnit
@@ -192,6 +224,16 @@ AudioSink::SetPlaying(bool aPlaying)
 nsresult
 AudioSink::InitializeAudioStream(const PlaybackParams& aParams)
 {
+  SINK_LOG(">> %s", __func__);
+  if (mPreAudioStream) {
+    mAudioStream = mPreAudioStream;
+    mPreAudioStream = nullptr;
+    SINK_LOG(">>>> Propagate stream and start the stream");
+    mAudioStream->Start();
+    return NS_OK;
+  }
+
+  SINK_LOG(">>>> No pre-initialized stream can be reused. Create a new one!");
   mAudioStream = new AudioStream(*this);
   // When AudioQueue is empty, there is no way to know the channel layout of
   // the coming audio data, so we use the predefined channel map instead.

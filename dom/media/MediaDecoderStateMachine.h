@@ -423,6 +423,8 @@ protected:
   // Called on the state machine thread.
   void StartMediaSink();
 
+  void PreInitAudioSink();
+
   // Notification method invoked when mPlayState changes.
   void PlayStateChanged();
 

@@ -98,6 +98,8 @@ public:
   // Do nothing if this sink has no video track. Can be called in any state.
   virtual void Redraw(const VideoInfo& aInfo) {};
 
+  virtual void PreInit(const MediaInfo& aInfo) {};
+
   // Begin a playback session with the provided start time and media info.
   // Must be called when playback is stopped.
   virtual void Start(const TimeUnit& aStartTime, const MediaInfo& aInfo) = 0;

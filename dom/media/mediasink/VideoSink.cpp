@@ -163,6 +163,14 @@ VideoSink::SetPlaying(bool aPlaying)
 }
 
 void
+VideoSink::PreInit(const MediaInfo& aInfo)
+{
+  AssertOwnerThread();
+  VSINK_LOG("[%s]", __func__);
+  mAudioSink->PreInit(aInfo);
+}
+
+void
 VideoSink::Start(const TimeUnit& aStartTime, const MediaInfo& aInfo)
 {
   AssertOwnerThread();

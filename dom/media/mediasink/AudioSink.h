@@ -40,6 +40,8 @@ public:
   // finishes playing, or rejected if any error.
   RefPtr<GenericPromise> Init(const PlaybackParams& aParams);
 
+  nsresult PreInitializeAudioStream(const PlaybackParams& aParams);
+
   /*
    * All public functions are not thread-safe.
    * Called on the task queue of MDSM only.
@@ -77,6 +79,7 @@ private:
 
   // The audio stream resource. Used on the task queue of MDSM only.
   RefPtr<AudioStream> mAudioStream;
+  RefPtr<AudioStream> mPreAudioStream;
 
   // The presentation time of the first audio frame that was played.
   // We can add this to the audio stream position to determine

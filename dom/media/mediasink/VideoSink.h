@@ -58,6 +58,8 @@ public:
 
   void Redraw(const VideoInfo& aInfo) override;
 
+  void PreInit(const MediaInfo& aInfo) override;
+
   void Start(const TimeUnit& aStartTime, const MediaInfo& aInfo) override;
 
   void Stop() override;

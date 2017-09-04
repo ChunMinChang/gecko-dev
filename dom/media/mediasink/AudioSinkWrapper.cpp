@@ -8,6 +8,11 @@
 #include "AudioSinkWrapper.h"
 
 namespace mozilla {
+
+LazyLogModule gAudioSinkWrapperLog("AudioSinkWrapper");
+#undef LOG
+#define LOG(x, ...) MOZ_LOG(gAudioSinkWrapperLog, mozilla::LogLevel::Debug, ("%p " x, this, ##__VA_ARGS__))
+
 namespace media {
 
 AudioSinkWrapper::~AudioSinkWrapper()
@@ -20,6 +25,7 @@ AudioSinkWrapper::Shutdown()
   AssertOwnerThread();
   MOZ_ASSERT(!mIsStarted, "Must be called after playback stopped.");
   mCreator = nullptr;
+  mPreCreator = nullptr;
 }
 
 const MediaSink::PlaybackParams&
@@ -177,8 +183,21 @@ AudioSinkWrapper::SetPlaying(bool aPlaying)
 }
 
 void
+AudioSinkWrapper::PreInit(const MediaInfo& aInfo)
+{
+  LOG("@ %s", __func__);
+  if (!aInfo.HasAudio()) {
+    return;
+  }
+
+  mPreAudioSink.reset(mPreCreator->Create());
+  mPreAudioSink->PreInitializeAudioStream(mParams);
+}
+
+void
 AudioSinkWrapper::Start(const TimeUnit& aStartTime, const MediaInfo& aInfo)
 {
+  LOG("@ %s", __func__);
   AssertOwnerThread();
   MOZ_ASSERT(!mIsStarted, "playback already started.");
 
@@ -190,7 +209,14 @@ AudioSinkWrapper::Start(const TimeUnit& aStartTime, const MediaInfo& aInfo)
   mAudioEnded = !aInfo.HasAudio();
 
   if (aInfo.HasAudio()) {
-    mAudioSink.reset(mCreator->Create());
+    if (mPreAudioSink) {
+      LOG("@@@ Using the pre-created audiosink!");
+      mAudioSink.swap(mPreAudioSink);
+      mPreAudioSink.reset(nullptr);
+    } else {
+      LOG("@@@ Creating an audiosink!");
+      mAudioSink.reset(mCreator->Create());
+    }
     mEndPromise = mAudioSink->Init(mParams);
 
     mEndPromise->Then(
