@@ -260,6 +260,7 @@ protected:
   ReaderProxy* Reader() const { return mMaster->mReader; }
   const MediaInfo& Info() const { return mMaster->Info(); }
   MediaQueue<AudioData>& AudioQueue() const { return mMaster->mAudioQueue; }
+  MediaQueue<AudioData>& PreAudioQueue() const { return mMaster->mPreAudioQueue; }
   MediaQueue<VideoData>& VideoQueue() const { return mMaster->mVideoQueue; }
 
   template <class S, typename... Args, size_t... Indexes>
@@ -804,6 +805,14 @@ private:
 
   bool DonePrerollingAudio()
   {
+    if (mMaster->GetDecodedAudioDuration()
+        >= AudioPrerollThreshold().MultDouble(mMaster->mPlaybackRate)) {
+      SLOG("### DecodingState::DonePrerollingAudio, Size of AudioQueue: %d", AudioQueue().GetSize());
+      SLOG("### DecodingState::DonePrerollingAudio, loading %" PRId64 " us in queue.",
+           mMaster->GetDecodedAudioDuration().ToMicroseconds());
+      SLOG("### DecodingState::DonePrerollingAudio, Prerolling Threshold is %" PRId64 " us.",
+            AudioPrerollThreshold().MultDouble(mMaster->mPlaybackRate).ToMicroseconds());
+    }
     return !mMaster->IsAudioDecoding()
            || mMaster->GetDecodedAudioDuration()
               >= AudioPrerollThreshold().MultDouble(mMaster->mPlaybackRate);
@@ -1955,12 +1964,29 @@ public:
       hasNextFrame ? MediaDecoderOwner::NEXT_FRAME_AVAILABLE
                    : MediaDecoderOwner::NEXT_FRAME_UNAVAILABLE);
 
+    DecodingInAdvance();
     Step();
   }
 
   void Exit() override
   {
     mSentPlaybackEndedEvent = false;
+  }
+
+  void DecodingInAdvance()
+  {
+    SLOG("DecodingInAdvance");
+
+    if (!mMaster->HasAudio()) {
+      return;
+    }
+
+    SLOG("> Reset Demuxer and Decoder");
+    Reader()->ResetDecode(TrackInfo::kAudioTrack);
+    PreAudioQueue().Reset();
+
+    SLOG("> Request audio data ...");
+    mMaster->RequestAudioData();
   }
 
   void Step() override
@@ -2037,7 +2063,59 @@ public:
     }
   }
 
+  void HandleAudioDecoded(AudioData* aAudio) override
+  {
+    SLOG("> HandleAudioDecoded");
+    mMaster->PushPreAudio(aAudio);
+    if (PreAudioQueue().IsFinished() ||
+        mMaster->IsRequestingAudioData() ||
+        mMaster->IsWaitingAudioData()) {
+      return;
+    }
+
+    if (DonePrerollingAudio()) {
+      SLOG("*** Prerolling finishes in advance!");
+      return;
+    }
+
+    mMaster->RequestAudioData();
+  }
+
+  void HandleEndOfAudio() override
+  {
+    SLOG("> HandleAudioDecoded");
+    PreAudioQueue().Finish();
+  }
+
 private:
+  TimeUnit AudioPrerollThreshold() const
+  {
+    return mMaster->mAmpleAudioThreshold / 2;
+  }
+
+  bool DonePrerollingAudio()
+  {
+    /*return PreAudioQueue().IsFinished()
+      || mMaster->GetPreDecodedAudioDuration()
+         >= AudioPrerollThreshold().MultDouble(mMaster->mPlaybackRate));*/
+    if (PreAudioQueue().IsFinished()) {
+      SLOG("CompletedState::DonePrerollingAudio <<< Finishes pre-decoding!");
+      return true;
+    }
+
+    if (mMaster->GetPreDecodedAudioDuration()
+        >= AudioPrerollThreshold().MultDouble(mMaster->mPlaybackRate)) {
+      SLOG("CompletedState::DonePrerollingAudio <<< Size of PreAudioQueue: %d", PreAudioQueue().GetSize());
+      SLOG("CompletedState::DonePrerollingAudio <<< loading %" PRId64 " us in pre-queue.",
+           mMaster->GetPreDecodedAudioDuration().ToMicroseconds());
+      SLOG("CompletedState::DonePrerollingAudio <<<, Prerolling Threshold is %" PRId64 " us.",
+           AudioPrerollThreshold().MultDouble(mMaster->mPlaybackRate).ToMicroseconds());
+      return true;
+    }
+
+    return false;
+  }
+
   bool mSentPlaybackEndedEvent = false;
 };
 
@@ -2322,6 +2400,29 @@ MediaDecoderStateMachine::
 DecodingState::Enter()
 {
   MOZ_ASSERT(mMaster->mSentFirstFrameLoadedEvent);
+
+  SLOG("!!! Enter DecodingState, Size of PreAudioQueue: %d", PreAudioQueue().GetSize());
+  SLOG("!!! Enter DecodingState, Size of AudioQueue: %d", AudioQueue().GetSize());
+  if (PreAudioQueue().Duration() > AudioQueue().Duration()) {
+    AudioQueue().Reset();
+    while (PreAudioQueue().GetSize() > 0) {
+      RefPtr<AudioData> data = PreAudioQueue().PopFront();
+      AudioQueue().Push(data);
+    }
+
+    if (PreAudioQueue().IsFinished()) {
+      AudioQueue().Finish();
+    }
+  }
+
+  PreAudioQueue().Reset();
+
+  SLOG("!!! Enter DecodingState, Size of PreAudioQueue: %d", PreAudioQueue().GetSize());
+  SLOG("!!! Enter DecodingState, Size of AudioQueue: %d", AudioQueue().GetSize());
+  SLOG("!!! Enter DecodingState, preloading %" PRId64 " us in queue.",
+        mMaster->GetDecodedAudioDuration().ToMicroseconds());
+  SLOG("!!! Prerolling Threshold is %" PRId64 " us.",
+       AudioPrerollThreshold().MultDouble(mMaster->mPlaybackRate).ToMicroseconds());
 
   if (mMaster->mVideoDecodeMode == VideoDecodeMode::Suspend
       && !mMaster->mVideoDecodeSuspendTimer.IsScheduled()
@@ -2807,6 +2908,12 @@ MediaDecoderStateMachine::GetDecodedAudioDuration()
   return TimeUnit::FromMicroseconds(AudioQueue().Duration());
 }
 
+media::TimeUnit MediaDecoderStateMachine::GetPreDecodedAudioDuration()
+{
+  MOZ_ASSERT(OnTaskQueue());
+  return TimeUnit::FromMicroseconds(PreAudioQueue().Duration());
+}
+
 bool
 MediaDecoderStateMachine::HaveEnoughDecodedAudio()
 {
@@ -2828,6 +2935,14 @@ MediaDecoderStateMachine::PushAudio(AudioData* aSample)
   MOZ_ASSERT(OnTaskQueue());
   MOZ_ASSERT(aSample);
   AudioQueue().Push(aSample);
+}
+
+void
+MediaDecoderStateMachine::PushPreAudio(AudioData* aSample)
+{
+  MOZ_ASSERT(OnTaskQueue());
+  MOZ_ASSERT(aSample);
+  PreAudioQueue().Push(aSample);
 }
 
 void
@@ -3066,6 +3181,11 @@ void MediaDecoderStateMachine::SetVideoDecodeMode(VideoDecodeMode aMode)
     &MediaDecoderStateMachine::SetVideoDecodeModeInternal,
     aMode);
   OwnerThread()->DispatchStateChange(r.forget());
+}
+
+media::TimeUnit MediaDecoderStateMachine::PreloadTime()
+{
+  return TimeUnit::FromMicroseconds(PreAudioQueue().Duration());
 }
 
 void MediaDecoderStateMachine::SetVideoDecodeModeInternal(VideoDecodeMode aMode)
@@ -3514,7 +3634,7 @@ MediaDecoderStateMachine::ResetDecode(TrackSet aTracks)
 
   mPlaybackOffset = 0;
 
-  mReader->ResetDecode(aTracks);
+  //mReader->ResetDecode(aTracks);
 }
 
 media::TimeUnit

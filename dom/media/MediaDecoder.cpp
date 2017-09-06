@@ -651,6 +651,7 @@ MediaDecoder::Seek(double aTime, SeekTarget::Type aSeekType)
   MOZ_ASSERT(aTime >= 0.0, "Cannot seek to a negative value.");
 
   int64_t timeUsecs = TimeUnit::FromSeconds(aTime).ToMicroseconds();
+  //int64_t timeUsecs = mDecoderStateMachine->PreloadTime().ToMicroseconds();
 
   mLogicalPosition = aTime;
 

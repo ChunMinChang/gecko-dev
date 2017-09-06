@@ -2629,6 +2629,9 @@ MediaFormatReader::Seek(const SeekTarget& aTarget)
     return SeekPromise::CreateAndReject(NS_ERROR_FAILURE, __func__);
   }
 
+  // Resolve directly if it's for loop since it must start from 0.
+  return SeekPromise::CreateAndResolve(aTarget.GetTime(), __func__);
+
   SetSeekTarget(aTarget);
 
   RefPtr<SeekPromise> p = mSeekPromise.Ensure(__func__);
