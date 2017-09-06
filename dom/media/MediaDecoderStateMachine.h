@@ -260,6 +260,8 @@ public:
   // Sets the video decode mode. Used by the suspend-video-decoder feature.
   void SetVideoDecodeMode(VideoDecodeMode aMode);
 
+  media::TimeUnit PreloadTime();
+
 private:
   class StateObject;
   class DecodeMetadataState;
@@ -348,6 +350,7 @@ protected:
   // Inserts a sample into the Audio/Video queue.
   // aSample must not be null.
   void PushAudio(AudioData* aSample);
+  void PushPreAudio(AudioData* aSample);
   void PushVideo(VideoData* aSample);
 
   void OnAudioPopped(const RefPtr<AudioData>& aSample);
@@ -360,6 +363,7 @@ protected:
   void PreservesPitchChanged();
 
   MediaQueue<AudioData>& AudioQueue() { return mAudioQueue; }
+  MediaQueue<AudioData>& PreAudioQueue() { return mPreAudioQueue; }
   MediaQueue<VideoData>& VideoQueue() { return mVideoQueue; }
 
   // True if we are low in decoded audio/video data.
@@ -475,6 +479,8 @@ protected:
   // must be held when calling this. Called on the decode thread.
   media::TimeUnit GetDecodedAudioDuration();
 
+  media::TimeUnit GetPreDecodedAudioDuration();
+
   void FinishDecodeFirstFrame();
 
   // Performs one "cycle" of the state machine.
@@ -518,6 +524,7 @@ private:
   // Queue of audio frames. This queue is threadsafe, and is accessed from
   // the audio, decoder, state machine, and main threads.
   MediaQueue<AudioData> mAudioQueue;
+  MediaQueue<AudioData> mPreAudioQueue;
   // Queue of video frames. This queue is threadsafe, and is accessed from
   // the decoder, state machine, and main threads.
   MediaQueue<VideoData> mVideoQueue;
