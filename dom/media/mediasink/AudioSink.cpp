@@ -141,8 +141,9 @@ AudioSink::Shutdown()
   mProcessedQueueListener.Disconnect();
 
   if (mAudioStream) {
-    mAudioStream->Shutdown();
-    mAudioStream = nullptr;
+    //mAudioStream->Shutdown();
+    //mAudioStream = nullptr;
+    mAudioStream->Pause();
   }
   mProcessedQueue.Reset();
   mProcessedQueue.Finish();
@@ -192,6 +193,11 @@ AudioSink::SetPlaying(bool aPlaying)
 nsresult
 AudioSink::InitializeAudioStream(const PlaybackParams& aParams)
 {
+  if (mAudioStream) {
+    mAudioStream->Start();
+    return NS_OK;
+  }
+
   mAudioStream = new AudioStream(*this);
   // When AudioQueue is empty, there is no way to know the channel layout of
   // the coming audio data, so we use the predefined channel map instead.

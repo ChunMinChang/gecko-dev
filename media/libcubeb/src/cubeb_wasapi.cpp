@@ -1979,6 +1979,7 @@ int wasapi_stream_start(cubeb_stream * stm)
   }
 
   stm->state_callback(stm, stm->user_ptr, CUBEB_STATE_STARTED);
+  stm->draining = false;
 
   return CUBEB_OK;
 }

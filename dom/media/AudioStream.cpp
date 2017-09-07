@@ -422,13 +422,13 @@ AudioStream::Pause()
   MOZ_ASSERT(mState != SHUTDOWN, "Already Shutdown()ed.");
 
   // Do nothing if we are already drained or errored.
-  if (mState == DRAINED || mState == ERRORED) {
+  if (/*mState == DRAINED ||*/ mState == ERRORED) {
     return;
   }
 
   if (InvokeCubeb(cubeb_stream_stop) != CUBEB_OK) {
     mState = ERRORED;
-  } else if (mState != DRAINED && mState != ERRORED) {
+  } else if (/*mState != DRAINED &&*/ mState != ERRORED) {
     // Don't transition to other states if we are already
     // drained or errored.
     mState = STOPPED;
@@ -444,13 +444,13 @@ AudioStream::Resume()
   MOZ_ASSERT(mState != SHUTDOWN, "Already Shutdown()ed.");
 
   // Do nothing if we are already drained or errored.
-  if (mState == DRAINED || mState == ERRORED) {
+  if (/*mState == DRAINED ||*/ mState == ERRORED) {
     return;
   }
 
   if (InvokeCubeb(cubeb_stream_start) != CUBEB_OK) {
     mState = ERRORED;
-  } else if (mState != DRAINED && mState != ERRORED) {
+  } else if (/*mState != DRAINED &&*/ mState != ERRORED) {
     // Don't transition to other states if we are already
     // drained or errored.
     mState = STARTED;
