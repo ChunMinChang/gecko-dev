@@ -190,7 +190,9 @@ AudioSinkWrapper::Start(const TimeUnit& aStartTime, const MediaInfo& aInfo)
   mAudioEnded = !aInfo.HasAudio();
 
   if (aInfo.HasAudio()) {
-    mAudioSink.reset(mCreator->Create());
+    if (!mAudioSink) {
+      mAudioSink.reset(mCreator->Create());
+    }
     mEndPromise = mAudioSink->Init(mParams);
 
     mEndPromise->Then(
@@ -212,8 +214,8 @@ AudioSinkWrapper::Stop()
 
   if (mAudioSink) {
     mAudioSinkPromise.DisconnectIfExists();
-    mAudioSink->Shutdown();
-    mAudioSink = nullptr;
+    mAudioSink->Shutdown(); // Don't release mAudioStream in mAudioSink.
+    //mAudioSink = nullptr;
     mEndPromise = nullptr;
   }
 }

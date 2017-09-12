@@ -681,7 +681,9 @@ bool get_output_buffer(cubeb_stream * stm, void *& buffer, size_t & frame_count)
     if (padding_out == 0) {
       LOG("Draining finished.");
       stm->state_callback(stm, stm->user_ptr, CUBEB_STATE_DRAINED);
-      return false;
+      //return false;
+      stm->draining = false;
+      return true;
     }
     LOG("Draining.");
     return true;

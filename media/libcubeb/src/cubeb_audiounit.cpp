@@ -453,14 +453,15 @@ audiounit_output_callback(void * user_ptr,
 
   stm->current_latency_frames = audiotimestamp_to_latency(tstamp, stm);
   if (stm->draining) {
-    OSStatus r = AudioOutputUnitStop(stm->output_unit);
-    assert(r == 0);
-    if (stm->input_unit) {
-      r = AudioOutputUnitStop(stm->input_unit);
-      assert(r == 0);
-    }
+    // OSStatus r = AudioOutputUnitStop(stm->output_unit);
+    // assert(r == 0);
+    // if (stm->input_unit) {
+    //   r = AudioOutputUnitStop(stm->input_unit);
+    //   assert(r == 0);
+    // }
     stm->state_callback(stm, stm->user_ptr, CUBEB_STATE_DRAINED);
     audiounit_make_silent(&outBufferList->mBuffers[0]);
+    stm->draining = false;
     return noErr;
   }
   /* Get output buffer. */

@@ -92,6 +92,10 @@ AudioSink::Init(const PlaybackParams& aParams)
   // ready to be played.
   NotifyAudioNeeded();
   RefPtr<GenericPromise> p = mEndPromise.Ensure(__func__);
+  if (mAudioStream) {
+    return p;
+  }
+
   nsresult rv = InitializeAudioStream(aParams);
   if (NS_FAILED(rv)) {
     mEndPromise.Reject(rv, __func__);
@@ -140,10 +144,10 @@ AudioSink::Shutdown()
   mAudioQueueFinishListener.Disconnect();
   mProcessedQueueListener.Disconnect();
 
-  if (mAudioStream) {
+  /*if (mAudioStream) {
     mAudioStream->Shutdown();
     mAudioStream = nullptr;
-  }
+  }*/
   mProcessedQueue.Reset();
   mProcessedQueue.Finish();
   mEndPromise.ResolveIfExists(true, __func__);
