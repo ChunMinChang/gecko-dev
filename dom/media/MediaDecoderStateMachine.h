@@ -120,6 +120,7 @@ enum class MediaEventType : int8_t
   PlaybackStopped,
   PlaybackEnded,
   SeekStarted,
+  Loop,
   Invalidate,
   EnterVideoSuspend,
   ExitVideoSuspend,
@@ -309,6 +310,13 @@ private:
   bool HasAudio() const { return mInfo.ref().HasAudio(); }
   bool HasVideo() const { return mInfo.ref().HasVideo(); }
   const MediaInfo& Info() const { return mInfo.ref(); }
+
+  bool AudioOnly() const { return HasAudio() && !HasVideo(); }
+  bool AudioLoopingIsCanceled()
+  {
+    MOZ_ASSERT(AudioOnly());
+    return AudioQueue().IsLooping() && !mLooping;
+  }
 
   // Returns the state machine task queue.
   TaskQueue* OwnerThread() const { return mTaskQueue; }

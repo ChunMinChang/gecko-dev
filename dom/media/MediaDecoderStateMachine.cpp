@@ -608,10 +608,25 @@ public:
     mDormantTimer.Reset();
     mOnAudioPopped.DisconnectIfExists();
     mOnVideoPopped.DisconnectIfExists();
+    mSeekRequest.DisconnectIfExists();
   }
 
   void Step() override
   {
+    // Finish audio looping if the decoding is done
+    // and the queued data can be played till the end.
+    // If the audio is still waiting for the decoded data,
+    // looping should be finished in HandleAudioDecoded instead.
+    if (mMaster->AudioOnly() &&
+        mMaster->AudioLoopingIsCanceled() &&
+        !mMaster->IsWaitingAudioData() &&
+        AudioQueue().CanLoopToEnd()) {
+      // If we call FinishAudioLooping() here and successfully enter
+      // the CompletedState, it will cause a crash since the following code
+      // will be destroyed and cannot be executed after state changing.
+      DispatchFinishAudioLooping();
+    }
+
     if (mMaster->mPlayState != MediaDecoder::PLAY_STATE_PLAYING &&
         mMaster->IsPlaying()) {
       // We're playing, but the element/decoder is in paused state. Stop
@@ -639,6 +654,14 @@ public:
 
   void HandleAudioDecoded(AudioData* aAudio) override
   {
+    // Stop decoding audio and finish looping if looping is canceled
+    // and the queued data can be played till the end.
+    if (mMaster->AudioOnly() &&
+        mMaster->AudioLoopingIsCanceled() &&
+        AudioQueue().CanLoopToEnd()) {
+      FinishAudioLooping();
+      return;
+    }
     mMaster->PushAudio(aAudio);
     DispatchDecodeTasksIfNeeded();
     MaybeStopPrerolling();
@@ -773,6 +796,20 @@ private:
     }
   }
 
+  void FinishAudioLooping();
+
+  void DispatchFinishAudioLooping()
+  {
+    MOZ_ASSERT(mMaster->AudioOnly());
+    MediaDecoderStateMachine::DecodingState* self = this;
+    OwnerThread()->Dispatch(
+      NS_NewRunnableFunction(
+        "MediaDecoderStateMachine::DecodingState::DispatchFinishAudioLooping",
+        [self]() { self->FinishAudioLooping(); }
+      )
+    );
+  }
+
   void StartDormantTimer()
   {
     if (!mMaster->mMediaSeekable) {
@@ -825,6 +862,8 @@ private:
 
   MediaEventListener mOnAudioPopped;
   MediaEventListener mOnVideoPopped;
+
+  MozPromiseRequestHolder<MediaFormatReader::SeekPromise> mSeekRequest;
 };
 
 /**
@@ -1941,6 +1980,13 @@ public:
     if (!mSentPlaybackEndedEvent) {
       auto clockTime =
         std::max(mMaster->AudioEndTime(), mMaster->VideoEndTime());
+
+      if (mMaster->AudioOnly() && mMaster->AudioLoopingIsCanceled()) {
+        clockTime =
+          std::min(clockTime,
+                   TimeUnit::FromMicroseconds(AudioQueue().GetEndingTime()));
+      }
+
       if (mMaster->mDuration.Ref()->IsInfinite()) {
         // We have a finite duration when playback reaches the end.
         mMaster->mDuration = Some(clockTime);
@@ -2305,8 +2351,47 @@ DecodingState::Enter()
 
 void
 MediaDecoderStateMachine::
+DecodingState::FinishAudioLooping()
+{
+  MOZ_ASSERT(mMaster->AudioOnly() &&
+             mMaster->AudioLoopingIsCanceled() &&
+             AudioQueue().CanLoopToEnd());
+  // Ignore the callback for decoding data.
+  mMaster->mAudioDataRequest.DisconnectIfExists();
+  AudioQueue().FlushLoopingData();
+  HandleEndOfAudio();
+}
+
+void
+MediaDecoderStateMachine::
 DecodingState::HandleEndOfAudio()
 {
+  // For audio-only looping, we continue decoding as it is a endless stream ...
+  if (mMaster->AudioOnly() && mMaster->mLooping) {
+    AudioQueue().CountLooping();
+
+    // Reset the demuxer's position to the beginning while looping:
+    // Most of the track demuxer's position will be seek to beginning
+    // automatically after calling ResetDecode(), but few of them won't
+    // (e.g., OggTrackDemuxer). Most of the track demuxer's position
+    // can be adjusted by Reader()->Seek(), however, opus audio will
+    // return fatal error if calling Seek() without ResetDecode().
+    // Therefore, we must call both them here.
+    Reader()->ResetDecode(TrackInfo::kAudioTrack);
+    Reader()->Seek(SeekTarget(TimeUnit(), SeekTarget::Accurate))
+      ->Then(OwnerThread(), __func__,
+             [this] (const media::TimeUnit& aUnit) {
+               mSeekRequest.Complete();
+               DispatchDecodeTasksIfNeeded();
+             },
+             [this] (const SeekRejectValue& aReject) {
+               mSeekRequest.Complete();
+               mMaster->DecodeError(aReject.mError);
+             })
+      ->Track(mSeekRequest);
+    return;
+  }
+
   AudioQueue().Finish();
   if (!mMaster->IsVideoDecoding()) {
     SetState<CompletedState>();
@@ -2353,6 +2438,24 @@ DecodingState::EnsureAudioDecodeTaskQueued()
       mMaster->IsWaitingAudioData()) {
     return;
   }
+
+  // For short audio files, originally it will be decoded in decoding state
+  // and played in completed state since its time is shorter than the
+  // prerolling threashold. However, if it's looped, we need to keep decoding
+  // it until its data is more than the threashold.
+  if (mMaster->AudioOnly() &&
+      mMaster->mLooping &&
+      AudioQueue().IsLooping() &&
+      AudioQueue().HasEnoughLoopingData() &&
+      !mIsPrerolling) {
+    return;
+  }
+
+  // If the seeking is not finished, do nothing!
+  if (mSeekRequest.Exists()) {
+    return;
+  }
+
   mMaster->RequestAudioData();
 }
 
@@ -3465,11 +3568,24 @@ MediaDecoderStateMachine::UpdatePlaybackPositionPeriodically()
   // advance the clock to after the media end time.
   if (VideoEndTime() > TimeUnit::Zero() || AudioEndTime() > TimeUnit::Zero()) {
 
-    const auto clockTime = GetClock();
+    auto clockTime = GetClock();
     // Skip frames up to the frame at the playback position, and figure out
     // the time remaining until it's time to display the next frame and drop
     // the current frame.
     NS_ASSERTION(clockTime >= TimeUnit::Zero(), "Should have positive clock time.");
+
+    bool loopback = false;
+    if (AudioOnly() && AudioQueue().IsLooping()) {
+      TimeUnit period = TimeUnit::FromMicroseconds(AudioQueue().GetEndingTime());
+      MOZ_ASSERT(period >= TimeUnit::Zero());
+      clockTime %= period;
+
+      if (clockTime < GetMediaTime()) {
+        // We need to fake the seeking and seeked events here.
+        mOnPlaybackEvent.Notify(MediaEventType::Loop);
+        loopback = true;
+      }
+    }
 
     // These will be non -1 if we've displayed a video frame, or played an audio
     // frame.
@@ -3477,7 +3593,8 @@ MediaDecoderStateMachine::UpdatePlaybackPositionPeriodically()
     auto t = std::min(clockTime, maxEndTime);
     // FIXME: Bug 1091422 - chained ogg files hit this assertion.
     //MOZ_ASSERT(t >= GetMediaTime());
-    if (t > GetMediaTime()) {
+
+    if (loopback || t > GetMediaTime()) {
       UpdatePlaybackPosition(t);
     }
   }
@@ -3563,6 +3680,9 @@ TimeUnit
 MediaDecoderStateMachine::AudioEndTime() const
 {
   MOZ_ASSERT(OnTaskQueue());
+  if (mAudioQueue.IsLooping()) {
+    return TimeUnit::FromMicroseconds(mAudioQueue.GetEndingTime());
+  }
   if (mMediaSink->IsStarted()) {
     return mMediaSink->GetEndTime(TrackInfo::kAudioTrack);
   }

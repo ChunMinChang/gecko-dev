@@ -9,6 +9,7 @@
 #include "mozilla/RecursiveMutex.h"
 #include "mozilla/TaskQueue.h"
 
+#include "MediaData.h"
 #include "nsDeque.h"
 #include "MediaEventSource.h"
 #include "TimeUnits.h"
@@ -30,7 +31,11 @@ public:
   MediaQueue()
     : nsDeque(new MediaQueueDeallocator<T>()),
       mRecursiveMutex("mediaqueue"),
-      mEndOfStream(false)
+      mEndOfStream(false),
+      mEndTime(0),
+      mStreamCount(0),
+      mPopCount(0),
+      mLoopingCount(0)
   {}
 
   ~MediaQueue() {
@@ -50,6 +55,14 @@ public:
     MOZ_ASSERT(aItem->GetEndTime() >= aItem->mTime);
     nsDeque::Push(aItem);
     mPushEvent.Notify(RefPtr<T>(aItem));
+
+    if (!mLoopingCount) {
+      ++mStreamCount;
+      UpdateEndTime(aItem);
+    } else {
+      aItem->mTime +=
+        media::TimeUnit::FromMicroseconds(mEndTime * mLoopingCount);
+    }
   }
 
   inline already_AddRefed<T> PopFront() {
@@ -58,6 +71,12 @@ public:
     if (rv) {
       mPopEvent.Notify(rv);
     }
+
+    ++mPopCount;
+    if (mLoopingCount) {
+      mPopCount %= mStreamCount;
+    }
+
     return rv.forget();
   }
 
@@ -72,6 +91,11 @@ public:
       RefPtr<T> x = dont_AddRef(static_cast<T*>(nsDeque::PopFront()));
     }
     mEndOfStream = false;
+
+    mEndTime = 0;
+    mStreamCount = 0;
+    mPopCount = 0;
+    mLoopingCount = 0;
   }
 
   bool AtEndOfStream() const {
@@ -166,7 +190,54 @@ public:
     return mFinishEvent;
   }
 
+  // Looping helpers
+  bool IsLooping() const {
+    RecursiveMutexAutoLock lock(mRecursiveMutex);
+    return mLoopingCount;
+  }
+
+  void CountLooping() {
+    RecursiveMutexAutoLock lock(mRecursiveMutex);
+    ++mLoopingCount;
+  }
+
+  bool HasEnoughLoopingData() const {
+    RecursiveMutexAutoLock lock(mRecursiveMutex);
+    MOZ_ASSERT(mLoopingCount);
+    return GetSize() > mStreamCount;
+  }
+
+  bool CanLoopToEnd() const {
+    RecursiveMutexAutoLock lock(mRecursiveMutex);
+    MOZ_ASSERT(mLoopingCount);
+    uint64_t left = mStreamCount - mPopCount;
+    return GetSize() > left;
+  }
+
+  void FlushLoopingData() {
+    RecursiveMutexAutoLock lock(mRecursiveMutex);
+    MOZ_ASSERT(mLoopingCount);
+    uint64_t left = mStreamCount - mPopCount;
+    while (GetSize() > left) {
+      RefPtr<T> x = dont_AddRef(static_cast<T*>(nsDeque::Pop()));
+    }
+  }
+
+  int64_t GetEndingTime() const {
+    RecursiveMutexAutoLock lock(mRecursiveMutex);
+    MOZ_ASSERT(mLoopingCount);
+    return mEndTime;
+  }
+
 private:
+  void UpdateEndTime(AudioData* data) {
+    mEndTime += 1000000 * data->mFrames / data->mRate;
+  }
+
+  void UpdateEndTime(VideoData* data) {
+    // Do nothing since there is no `mRate` in VideoData.
+  }
+
   mutable RecursiveMutex mRecursiveMutex;
   MediaEventProducer<RefPtr<T>> mPopEvent;
   MediaEventProducer<RefPtr<T>> mPushEvent;
@@ -174,6 +245,12 @@ private:
   // True when we've decoded the last frame of data in the
   // bitstream for which we're queueing frame data.
   bool mEndOfStream;
+
+  // The below members are for looping.
+  int64_t mEndTime; // Ending time in microseconds.
+  uint64_t mStreamCount;
+  uint64_t mPopCount;
+  uint32_t mLoopingCount;
 };
 
 } // namespace mozilla

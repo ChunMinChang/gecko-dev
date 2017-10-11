@@ -150,6 +150,13 @@ public:
     MOZ_ASSERT(!IsInfinite() && !aOther.IsInfinite());
     return TimeUnit(mValue - aOther.mValue);
   }
+  TimeUnit operator%(const TimeUnit& aOther) const {
+    if (IsInfinite() && !aOther.IsInfinite()) {
+      return FromInfinity();
+    }
+    MOZ_ASSERT(!IsInfinite() && !aOther.IsInfinite());
+    return TimeUnit(mValue % aOther.mValue);
+  }
   TimeUnit& operator+=(const TimeUnit& aOther)
   {
     *this = *this + aOther;
@@ -158,6 +165,10 @@ public:
   TimeUnit& operator-=(const TimeUnit& aOther)
   {
     *this = *this - aOther;
+    return *this;
+  }
+  TimeUnit& operator%=(const TimeUnit& aOther) {
+    *this = *this % aOther;
     return *this;
   }
 
