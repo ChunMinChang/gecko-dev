@@ -210,6 +210,8 @@ private:
   DECL_MEDIA_PREF("media.cubeb.sandbox",                      CubebSandbox, bool, false);
   DECL_MEDIA_PREF("media.videocontrols.lock-video-orientation",  VideoOrientationLockEnabled, bool, false);
 
+  // Audio Seamless Looping
+  DECL_MEDIA_PREF("media.audio.seamless-looping",             AudioSeamlessLooping, bool, true);
 public:
   // Manage the singleton:
   static MediaPrefs& GetSingleton();

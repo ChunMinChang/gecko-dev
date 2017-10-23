@@ -451,6 +451,9 @@ pref("media.suspend-bkgnd-video.delay-ms", 10000);
 // reduce the resume latency and improve the user experience.
 pref("media.resume-bkgnd-video-on-tabhover", true);;
 
+// Whether the audio is looped seamless.
+pref("media.audio.seamless-looping", true);;
+
 #ifdef MOZ_WEBRTC
 pref("media.navigator.enabled", true);
 pref("media.navigator.video.enabled", true);
