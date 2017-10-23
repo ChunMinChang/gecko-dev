@@ -177,6 +177,10 @@ public:
   {
     return TimeUnit(aUnit.mValue / aVal);
   }
+  friend TimeUnit operator%(const TimeUnit& aUnit, int64_t aVal)
+  {
+    return TimeUnit(aUnit.mValue % aVal);
+  }
 
   bool IsValid() const { return mValue.isValid(); }
 
