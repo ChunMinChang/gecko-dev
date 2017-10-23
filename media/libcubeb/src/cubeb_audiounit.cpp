@@ -575,6 +575,7 @@ static int audiounit_stream_get_volume(cubeb_stream * stm, float * volume);
 static int audiounit_stream_set_volume(cubeb_stream * stm, float volume);
 static int audiounit_uninstall_device_changed_callback(cubeb_stream * stm);
 static AudioObjectID audiounit_get_default_device_id(cubeb_device_type type);
+static int audiounit_get_default_group_id(const char ** id, io_side side);
 
 static int
 audiounit_set_device_info(cubeb_stream * stm, AudioDeviceID id, io_side side)
@@ -1164,6 +1165,22 @@ audiounit_get_current_channel_layout(AudioUnit output_unit)
 static cubeb_channel_layout
 audiounit_get_preferred_channel_layout()
 {
+  // Check whether the default output device is in the blacklist;
+  char const * device_id = nullptr;
+  if(audiounit_get_default_group_id(&device_id, OUTPUT) == CUBEB_OK &&
+     device_id != nullptr) {
+    char const* blacklist[] = {
+      // "AppleHDAEngineOutput:1F,3,0,1,1:0",  // Headphone
+      "com_motu_driver_FWA_Engine:000009f200"
+    };
+    for (unsigned int i = 0 ; i < sizeof(blacklist) / sizeof(blacklist[0]) ; ++i) {
+      if (!std::strcmp(blacklist[i], device_id)) {
+        LOG("The device: %s is in the blacklist!", device_id);
+        return CUBEB_LAYOUT_UNDEFINED;
+      }
+    }
+  }
+
   OSStatus rv = noErr;
   UInt32 size = 0;
   AudioDeviceID id;
@@ -1201,6 +1218,7 @@ audiounit_get_preferred_channel_layout(cubeb * ctx, cubeb_channel_layout * layou
   // For default output on Mac, there is no preferred channel layout,
   // so it might return UNDEFINED.
   *layout = audiounit_get_preferred_channel_layout();
+  LOG("Preferred channel layout is %s", CUBEB_CHANNEL_LAYOUT_MAPS[*layout].name);
 
   // If the preferred channel layout is UNDEFINED, then we try to access the
   // current applied channel layout.
@@ -1209,6 +1227,7 @@ audiounit_get_preferred_channel_layout(cubeb * ctx, cubeb_channel_layout * layou
     // layout must be updated. We can return it directly.
     if (ctx->active_streams) {
       *layout = ctx->layout;
+      LOG("Active channel layout is %s", CUBEB_CHANNEL_LAYOUT_MAPS[*layout].name);
       return CUBEB_OK;
     }
 
@@ -1221,6 +1240,7 @@ audiounit_get_preferred_channel_layout(cubeb * ctx, cubeb_channel_layout * layou
     if (default_out_device.id != kAudioObjectUnknown) {
       audiounit_create_unit(&output_unit, &default_out_device);
       *layout = audiounit_get_current_channel_layout(output_unit);
+      LOG("Current channel layout is %s", CUBEB_CHANNEL_LAYOUT_MAPS[*layout].name);
     }
   }
 
@@ -1398,6 +1418,7 @@ audiounit_layout_init(cubeb_stream * stm, io_side side)
   // our desired layout. Thus, we update the layout evertime when the cubeb_stream
   // is created and use it when we need to mix audio data.
   stm->context->layout = audiounit_get_current_channel_layout(stm->output_unit);
+  LOG("Update current channel layout to %s", CUBEB_CHANNEL_LAYOUT_MAPS[stm->context->layout].name);
 }
 
 static std::vector<AudioObjectID>
@@ -2940,6 +2961,33 @@ audiounit_strref_to_cstr_utf8(CFStringRef strref)
   }
 
   return ret;
+}
+
+static int
+audiounit_get_default_group_id(const char ** id, io_side side)
+{
+  AudioObjectID devid = audiounit_get_default_device_id(CUBEB_DEVICE_TYPE_OUTPUT);
+
+  if (devid == kAudioObjectUnknown) {
+    return CUBEB_ERROR;
+  }
+
+  AudioObjectPropertyAddress adr = {
+    kAudioDevicePropertyDeviceUID,
+    kAudioDevicePropertyScopeOutput,
+    kAudioObjectPropertyElementMaster
+  };
+
+  UInt32 size = sizeof(CFStringRef);
+  CFStringRef str = NULL;
+  if (AudioObjectGetPropertyData(devid, &adr, 0, NULL, &size, &str) != noErr ||
+      str == NULL) {
+    return CUBEB_ERROR;
+  }
+
+  *id = audiounit_strref_to_cstr_utf8(str);
+  CFRelease(str);
+  return CUBEB_OK;
 }
 
 static uint32_t
