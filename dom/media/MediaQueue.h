@@ -9,6 +9,7 @@
 #include "mozilla/RecursiveMutex.h"
 #include "mozilla/TaskQueue.h"
 
+#include "MediaData.h"
 #include "nsDeque.h"
 #include "MediaEventSource.h"
 #include "TimeUnits.h"
@@ -50,6 +51,11 @@ public:
     MOZ_ASSERT(aItem->GetEndTime() >= aItem->mTime);
     nsDeque::Push(aItem);
     mPushEvent.Notify(RefPtr<T>(aItem));
+  }
+
+  inline RefPtr<T> Pop() {
+    RecursiveMutexAutoLock lock(mRecursiveMutex);
+    return static_cast<T*>(nsDeque::Pop());
   }
 
   inline already_AddRefed<T> PopFront() {

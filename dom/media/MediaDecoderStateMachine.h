@@ -93,6 +93,7 @@ hardware (via AudioStream).
 #include "MediaEventSource.h"
 #include "MediaFormatReader.h"
 #include "MediaMetadataManager.h"
+#include "MediaPrefs.h"
 #include "MediaQueue.h"
 #include "MediaStatistics.h"
 #include "MediaTimer.h"
@@ -120,6 +121,7 @@ enum class MediaEventType : int8_t
   PlaybackStopped,
   PlaybackEnded,
   SeekStarted,
+  Loop,
   Invalidate,
   EnterVideoSuspend,
   ExitVideoSuspend,
@@ -338,6 +340,27 @@ private:
 
   void SetVideoDecodeModeInternal(VideoDecodeMode aMode);
 
+  bool IsAudioOnly() const { return HasAudio() && !HasVideo(); }
+  bool AudioSeamlessLoopingEnabled() const
+  {
+    return MediaPrefs::AudioSeamlessLooping() && IsAudioOnly();
+  }
+  // Check whether audio should be looped seamlessly when it's called.
+  bool OnAudioLooping() const
+  {
+    return AudioSeamlessLoopingEnabled() && mLooping;
+  }
+  // Check whether audio is started to loop seamlessly.
+  bool HasAudioBeenLooped() const
+  {
+    return AudioSeamlessLoopingEnabled() && mLoopingCount;
+  }
+  // Check whether the seamless audio looping was once turned on
+  // but canceled now.
+  bool HasAudioLoopingBeenCancelled() const
+  {
+    return HasAudioBeenLooped() && !mLooping;
+  }
 protected:
   virtual ~MediaDecoderStateMachine();
 
@@ -664,6 +687,15 @@ private:
   MediaEventProducer<NextFrameStatus> mOnNextFrameStatus;
 
   const bool mIsMSE;
+
+  // The total number of data for one whole audio stream in AudioQueue.
+  uint64_t mStreamSize;
+  // The number of data that has been popped from the AudioQueue.
+  uint64_t mPoppedSize;
+  // To track how many times the audio is looped.
+  uint32_t mLoopingCount;
+  // The whole duration of one audio stream.
+  media::TimeUnit mPeriod = media::TimeUnit::Zero();
 
 private:
   // The buffered range. Mirrored from the decoder thread.
