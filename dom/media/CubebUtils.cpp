@@ -586,6 +586,27 @@ uint16_t ConvertCubebType(cubeb_device_type aType)
   return map[aType];
 }
 
+uint16_t ConvertCubebTransport(cubeb_device_transport aTransport)
+{
+  uint16_t map[] = {
+    nsIAudioDeviceInfo::TRANS_UNKNOWN,      // CUBEB_DEVICE_TRANS_UNKNOWN
+    nsIAudioDeviceInfo::TRANS_AGGREGATE,    // CUBEB_DEVICE_TRANS_AGGREGATE
+    nsIAudioDeviceInfo::TRANS_AIRPLAY,      // CUBEB_DEVICE_TRANS_AIRPLAY
+    nsIAudioDeviceInfo::TRANS_AVB,          // CUBEB_DEVICE_TRANS_AVB
+    nsIAudioDeviceInfo::TRANS_BLUETOOTH,    // CUBEB_DEVICE_TRANS_BLUETOOTH
+    nsIAudioDeviceInfo::TRANS_BLUETOOTHLE,  // CUBEB_DEVICE_TRANS_BLUETOOTHLE
+    nsIAudioDeviceInfo::TRANS_BUILTIN,      // CUBEB_DEVICE_TRANS_BUILTIN
+    nsIAudioDeviceInfo::TRANS_DISPLAYPORT,  // CUBEB_DEVICE_TRANS_DISPLAYPORT
+    nsIAudioDeviceInfo::TRANS_FIREWIRE,     // CUBEB_DEVICE_TRANS_FIREWIRE
+    nsIAudioDeviceInfo::TRANS_HDMI,         // CUBEB_DEVICE_TRANS_HDMI
+    nsIAudioDeviceInfo::TRANS_PCI,          // CUBEB_DEVICE_TRANS_PCI
+    nsIAudioDeviceInfo::TRANS_THUNDERBOLT,  // CUBEB_DEVICE_TRANS_THUNDERBOLT
+    nsIAudioDeviceInfo::TRANS_USB,          // CUBEB_DEVICE_TRANS_USB
+    nsIAudioDeviceInfo::TRANS_VIRTUAL       // CUBEB_DEVICE_TRANS_VIRTUAL
+  };
+  return map[aTransport];
+}
+
 uint16_t ConvertCubebState(cubeb_device_state aState)
 {
   uint16_t map[] = {
@@ -651,6 +672,8 @@ void GetDeviceCollection(nsTArray<RefPtr<AudioDeviceInfo>>& aDeviceInfos,
           new AudioDeviceInfo(NS_ConvertUTF8toUTF16(device.friendly_name),
                               NS_ConvertUTF8toUTF16(device.group_id),
                               NS_ConvertUTF8toUTF16(device.vendor_name),
+                              NS_ConvertUTF8toUTF16(device.model),
+                              ConvertCubebTransport(device.transport),
                               ConvertCubebType(device.type),
                               ConvertCubebState(device.state),
                               ConvertCubebPreferred(device.preferred),

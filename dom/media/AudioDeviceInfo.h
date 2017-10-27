@@ -19,6 +19,8 @@ public:
   explicit AudioDeviceInfo(const nsAString& aName,
                            const nsAString& aGroupId,
                            const nsAString& aVendor,
+                           const nsAString& aModel,
+                           uint16_t aTransport,
                            uint16_t aType,
                            uint16_t aState,
                            uint16_t aPreferred,
@@ -37,6 +39,8 @@ private:
   nsString mName;
   nsString mGroupId;
   nsString mVendor;
+  nsString mModel;
+  uint16_t mTransport;
   uint16_t mType;
   uint16_t mState;
   uint16_t mPreferred;

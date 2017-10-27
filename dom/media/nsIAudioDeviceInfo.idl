@@ -14,6 +14,25 @@ interface nsIAudioDeviceInfo : nsISupports
 
   readonly attribute DOMString vendor;
 
+  readonly attribute DOMString model;
+
+  // Transport: Unknow, USB, HDMI, PCI, etc.
+  const unsigned short TRANS_UNKNOWN      = 0;
+  const unsigned short TRANS_AGGREGATE    = 1;
+  const unsigned short TRANS_AIRPLAY      = 2;
+  const unsigned short TRANS_AVB          = 3;
+  const unsigned short TRANS_BLUETOOTH    = 4;
+  const unsigned short TRANS_BLUETOOTHLE  = 5;
+  const unsigned short TRANS_BUILTIN      = 6;
+  const unsigned short TRANS_DISPLAYPORT  = 7;
+  const unsigned short TRANS_FIREWIRE     = 8;
+  const unsigned short TRANS_HDMI         = 9;
+  const unsigned short TRANS_PCI          = 10;
+  const unsigned short TRANS_THUNDERBOLT  = 11;
+  const unsigned short TRANS_USB          = 12;
+  const unsigned short TRANS_VIRTUAL      = 13;
+  readonly attribute unsigned short transport;
+
   // type: Unknown/Input/Output
   const unsigned short TYPE_UNKNOWN = 0;
   const unsigned short TYPE_INPUT   = 1;

@@ -10,6 +10,8 @@ NS_IMPL_ISUPPORTS(AudioDeviceInfo, nsIAudioDeviceInfo)
 AudioDeviceInfo::AudioDeviceInfo(const nsAString& aName,
                                  const nsAString& aGroupId,
                                  const nsAString& aVendor,
+                                 const nsAString& aModel,
+                                 uint16_t aTransport,
                                  uint16_t aType,
                                  uint16_t aState,
                                  uint16_t aPreferred,
@@ -24,6 +26,8 @@ AudioDeviceInfo::AudioDeviceInfo(const nsAString& aName,
   : mName(aName)
   , mGroupId(aGroupId)
   , mVendor(aVendor)
+  , mModel(aModel)
+  , mTransport(aTransport)
   , mType(aType)
   , mState(aState)
   , mPreferred(aPreferred)
@@ -36,6 +40,8 @@ AudioDeviceInfo::AudioDeviceInfo(const nsAString& aName,
   , mMaxLatency(aMaxLatency)
   , mMinLatency(aMinLatency)
 {
+  MOZ_ASSERT(mTransport >= TRANS_UNKNOWN && mTransport <= TRANS_VIRTUAL,
+             "Wrong type");
   MOZ_ASSERT(mType == TYPE_UNKNOWN ||
              mType == TYPE_INPUT ||
              mType == TYPE_OUTPUT, "Wrong type");
@@ -75,6 +81,22 @@ NS_IMETHODIMP
 AudioDeviceInfo::GetVendor(nsAString& aVendor)
 {
   aVendor = mVendor;
+  return NS_OK;
+}
+
+/* readonly attribute DOMString model; */
+NS_IMETHODIMP
+AudioDeviceInfo::GetModel(nsAString& aModel)
+{
+  aModel = mModel;
+  return NS_OK;
+}
+
+/* readonly attribute unsigned short type; */
+NS_IMETHODIMP
+AudioDeviceInfo::GetTransport(uint16_t* aTransport)
+{
+  *aTransport = mTransport;
   return NS_OK;
 }
 
