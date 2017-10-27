@@ -3032,11 +3032,47 @@ audiounit_get_device_presentation_latency(AudioObjectID devid, AudioObjectProper
   return dev + stream + offset;
 }
 
+static cubeb_device_transport
+audiounit_convert_transport_type(UInt32 transport)
+{
+  switch(transport) {
+    case kAudioDeviceTransportTypeAVB:
+      return CUBEB_DEVICE_TRANS_AVB;
+    case kAudioDeviceTransportTypeAggregate:
+      return CUBEB_DEVICE_TRANS_AGGREGATE;
+    case kAudioDeviceTransportTypeAirPlay:
+      return CUBEB_DEVICE_TRANS_AIRPLAY;
+    case kAudioDeviceTransportTypeBluetooth:
+      return CUBEB_DEVICE_TRANS_BLUETOOTH;
+    case kAudioDeviceTransportTypeBluetoothLE:
+      return CUBEB_DEVICE_TRANS_BLUETOOTHLE;
+    case kAudioDeviceTransportTypeBuiltIn:
+      return CUBEB_DEVICE_TRANS_BUILTIN;
+    case kAudioDeviceTransportTypeDisplayPort:
+      return CUBEB_DEVICE_TRANS_DISPLAYPORT;
+    case kAudioDeviceTransportTypeFireWire:
+      return CUBEB_DEVICE_TRANS_FIREWIRE;
+    case kAudioDeviceTransportTypeHDMI:
+      return CUBEB_DEVICE_TRANS_HDMI;
+    case kAudioDeviceTransportTypePCI:
+      return CUBEB_DEVICE_TRANS_PCI;
+    case kAudioDeviceTransportTypeThunderbolt:
+      return CUBEB_DEVICE_TRANS_THUNDERBOLT;
+    case kAudioDeviceTransportTypeUSB:
+      return CUBEB_DEVICE_TRANS_USB;
+    case kAudioDeviceTransportTypeVirtual:
+      return CUBEB_DEVICE_TRANS_VIRTUAL;
+    case kAudioDeviceTransportTypeUnknown:
+    default:
+      return CUBEB_DEVICE_TRANS_UNKNOWN;
+  }
+}
+
 static int
 audiounit_create_device_from_hwdev(cubeb_device_info * ret, AudioObjectID devid, cubeb_device_type type)
 {
   AudioObjectPropertyAddress adr = { 0, 0, kAudioObjectPropertyElementMaster };
-  UInt32 size, ch, latency;
+  UInt32 size, ch, latency, transport;
   CFStringRef str = NULL;
   AudioValueRange range;
 
@@ -3063,6 +3099,19 @@ audiounit_create_device_from_hwdev(cubeb_device_info * ret, AudioObjectID devid,
     ret->devid = reinterpret_cast<cubeb_devid>(devid);
     ret->group_id = ret->device_id;
     CFRelease(str);
+  }
+
+  size = sizeof(CFStringRef);
+  adr.mSelector = kAudioDevicePropertyModelUID;
+  if (AudioObjectGetPropertyData(devid, &adr, 0, NULL, &size, &str) == noErr && str != NULL) {
+    ret->model = audiounit_strref_to_cstr_utf8(str);
+    CFRelease(str);
+  }
+
+  size = sizeof(UInt32);
+  adr.mSelector = kAudioDevicePropertyTransportType;
+  if (AudioObjectGetPropertyData(devid, &adr, 0, NULL, &size, &transport) == noErr) {
+    ret->transport = audiounit_convert_transport_type(transport);
   }
 
   size = sizeof(CFStringRef);

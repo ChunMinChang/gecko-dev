@@ -305,6 +305,23 @@ typedef enum {
   CUBEB_DEVICE_PREF_ALL           = 0x0F
 } cubeb_device_pref;
 
+typedef enum {
+  CUBEB_DEVICE_TRANS_UNKNOWN,
+  CUBEB_DEVICE_TRANS_AGGREGATE,
+  CUBEB_DEVICE_TRANS_AIRPLAY,
+  CUBEB_DEVICE_TRANS_AVB,
+  CUBEB_DEVICE_TRANS_BLUETOOTH,
+  CUBEB_DEVICE_TRANS_BLUETOOTHLE,
+  CUBEB_DEVICE_TRANS_BUILTIN,
+  CUBEB_DEVICE_TRANS_DISPLAYPORT,
+  CUBEB_DEVICE_TRANS_FIREWIRE,
+  CUBEB_DEVICE_TRANS_HDMI,
+  CUBEB_DEVICE_TRANS_PCI,
+  CUBEB_DEVICE_TRANS_THUNDERBOLT,
+  CUBEB_DEVICE_TRANS_USB,
+  CUBEB_DEVICE_TRANS_VIRTUAL,
+} cubeb_device_transport;
+
 /** This structure holds the characteristics
  *  of an input or output audio device. It is obtained using
  *  `cubeb_enumerate_devices`, which returns these structures via
@@ -316,7 +333,9 @@ typedef struct {
   char const * friendly_name; /**< Friendly device name which might be presented in a UI. */
   char const * group_id;      /**< Two devices have the same group identifier if they belong to the same physical device; for example a headset and microphone. */
   char const * vendor_name;   /**< Optional vendor name, may be NULL. */
+  char const * model;         /**< The unique identifier for the model of an AudioDevice. */
 
+  cubeb_device_transport transport; /**< Device Transport Type. */
   cubeb_device_type type;     /**< Type of device (Input/Output). */
   cubeb_device_state state;   /**< State of device disabled/enabled/unplugged. */
   cubeb_device_pref preferred;/**< Preferred device. */
