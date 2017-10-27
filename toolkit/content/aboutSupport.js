@@ -607,7 +607,7 @@ var snapshotFormatters = {
         let th = $.new("th", strings.GetStringFromName(key), "column");
         let td = $.new("td", value);
         td.style["white-space"] = "pre-wrap";
-        td.colSpan = 8;
+        td.colSpan = 10;
         return $.new("tr", [th, td]);
       }
       $.append($("media-info-tbody"), [createRow(key, value)]);
@@ -627,6 +627,22 @@ var snapshotFormatters = {
       preferreds[deviceInfo.PREF_VOICE] = "Voice";
       preferreds[deviceInfo.PREF_NOTIFICATION] = "Notification";
       preferreds[deviceInfo.PREF_ALL] = "All";
+
+      let transports = {};
+      transports[deviceInfo.TRANS_UNKNOWN] = "Unknown";
+      transports[deviceInfo.TRANS_AGGREGATE] = "Aggregate";
+      transports[deviceInfo.TRANS_AIRPLAY] = "AirPlay";
+      transports[deviceInfo.TRANS_AVB] = "AVB";
+      transports[deviceInfo.TRANS_BLUETOOTH] = "Bluetooth";
+      transports[deviceInfo.TRANS_BLUETOOTHLE] = "BluetoothLE";
+      transports[deviceInfo.TRANS_BUILTIN] = "Built In";
+      transports[deviceInfo.TRANS_DISPLAYPORT] = "DisplayPort";
+      transports[deviceInfo.TRANS_FIREWIRE] = "FireWire";
+      transports[deviceInfo.TRANS_HDMI] = "HDMI";
+      transports[deviceInfo.TRANS_PCI] = "PCI";
+      transports[deviceInfo.TRANS_THUNDERBOLT] = "Thunderbolt";
+      transports[deviceInfo.TRANS_USB] = "USB";
+      transports[deviceInfo.TRANS_VIRTUAL] = "Virtual";
 
       let formats = {};
       formats[deviceInfo.FMT_S16LE] = "S16LE";
@@ -676,6 +692,8 @@ var snapshotFormatters = {
       return $.new("tr", [$.new("td", device.name),
                           $.new("td", device.groupId),
                           $.new("td", device.vendor),
+                          $.new("td", device.model),
+                          $.new("td", transports[device.transport]),
                           $.new("td", states[device.state]),
                           $.new("td", toPreferredString(device.preferred)),
                           $.new("td", toFromatString(device)),

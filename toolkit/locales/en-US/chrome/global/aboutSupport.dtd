@@ -149,6 +149,8 @@ variant of aboutSupport.showDir.label. -->
 <!ENTITY aboutSupport.mediaDeviceName "Name">
 <!ENTITY aboutSupport.mediaDeviceGroup "Group">
 <!ENTITY aboutSupport.mediaDeviceVendor "Vendor">
+<!ENTITY aboutSupport.mediaDeviceModel "Model">
+<!ENTITY aboutSupport.mediaDeviceTransport "Transport">
 <!ENTITY aboutSupport.mediaDeviceState "State">
 <!ENTITY aboutSupport.mediaDevicePreferred "Preferred">
 <!ENTITY aboutSupport.mediaDeviceFormat "Format">

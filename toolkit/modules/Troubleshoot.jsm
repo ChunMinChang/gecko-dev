@@ -564,6 +564,8 @@ var dataProviders = {
           name: device.name,
           groupId: device.groupId,
           vendor: device.vendor,
+          model: device.model,
+          transport: device.transport,
           type: device.type,
           state: device.state,
           preferred: device.preferred,

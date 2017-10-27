@@ -433,6 +433,14 @@ const SNAPSHOT_SCHEMA = {
                 required: true,
                 type: "string",
               },
+              model: {
+                required: true,
+                type: "string",
+              },
+              transport: {
+                required: true,
+                type: "number",
+              },
               type: {
                 required: true,
                 type: "number",
@@ -497,6 +505,14 @@ const SNAPSHOT_SCHEMA = {
               vendor: {
                 required: true,
                 type: "string",
+              },
+              model: {
+                required: true,
+                type: "string",
+              },
+              transport: {
+                required: true,
+                type: "number",
               },
               type: {
                 required: true,
