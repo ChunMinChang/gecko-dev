@@ -87,7 +87,8 @@ ReaderProxy::OnAudioDataRequestFailed(const MediaResult& aError)
 
   // Save the duration of the audio track if it hasn't been set.
   if (!mAudioDuration.IsValid()) {
-    mAudioDuration = mLastAudioEndTime;
+    // Using the duration in MDSM to adjust the time in MDSM.
+    mAudioDuration = mDuration.Ref().ref();
   }
 
   // For seamless looping, the demuxer is sought to the beginning and then
