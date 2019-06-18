@@ -60,6 +60,8 @@ class nsSpeechTask : public nsISpeechTask,
 
   bool IsChrome() { return mIsChrome; }
 
+  bool IsWorking() const { return !!mAudioChannelAgent; }
+
  protected:
   virtual ~nsSpeechTask();
 

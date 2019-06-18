@@ -70,6 +70,8 @@ class SpeechSynthesis final : public DOMEventTargetHelper,
 
   bool HasVoices() const;
 
+  bool IsWorking() const { return mCurrentTask && mCurrentTask->IsWorking(); }
+
   nsTArray<RefPtr<SpeechSynthesisUtterance> > mSpeechQueue;
 
   RefPtr<nsSpeechTask> mCurrentTask;

@@ -76,27 +76,14 @@ JSObject* SpeechSynthesis::WrapObject(JSContext* aCx,
 }
 
 bool SpeechSynthesis::Pending() const {
-  switch (mSpeechQueue.Length()) {
-    case 0:
-      return false;
-
-    case 1:
-      return mSpeechQueue.ElementAt(0)->GetState() ==
-             SpeechSynthesisUtterance::STATE_PENDING;
-
-    default:
-      return true;
-  }
+  return mSpeechQueue.Length() > 1 ||
+         (mSpeechQueue.Length() == 1 && !IsWorking());
 }
 
 bool SpeechSynthesis::Speaking() const {
-  if (!mSpeechQueue.IsEmpty() && mSpeechQueue.ElementAt(0)->GetState() ==
-                                     SpeechSynthesisUtterance::STATE_SPEAKING) {
-    return true;
-  }
-
-  // Returns global speaking state if global queue is enabled. Or false.
-  return nsSynthVoiceRegistry::GetInstance()->IsSpeaking();
+  // Check global speaking state if there is no active task.
+  return (!mSpeechQueue.IsEmpty() && IsWorking()) ||
+         nsSynthVoiceRegistry::GetInstance()->IsSpeaking();
 }
 
 bool SpeechSynthesis::Paused() const {
@@ -126,13 +113,7 @@ void SpeechSynthesis::Speak(SpeechSynthesisUtterance& aUtterance) {
     return;
   }
 
-  if (aUtterance.mState != SpeechSynthesisUtterance::STATE_NONE) {
-    // XXX: Should probably raise an error
-    return;
-  }
-
   mSpeechQueue.AppendElement(&aUtterance);
-  aUtterance.mState = SpeechSynthesisUtterance::STATE_PENDING;
 
   // If we only have one item in the queue, we aren't pre-paused, and
   // we have voices available, speak it.
@@ -173,8 +154,7 @@ void SpeechSynthesis::AdvanceQueue() {
 }
 
 void SpeechSynthesis::Cancel() {
-  if (!mSpeechQueue.IsEmpty() && mSpeechQueue.ElementAt(0)->GetState() ==
-                                     SpeechSynthesisUtterance::STATE_SPEAKING) {
+  if (!mSpeechQueue.IsEmpty() && IsWorking()) {
     // Remove all queued utterances except for current one, we will remove it
     // in OnEnd
     mSpeechQueue.RemoveElementsAt(1, mSpeechQueue.Length() - 1);
@@ -192,9 +172,7 @@ void SpeechSynthesis::Pause() {
     return;
   }
 
-  if (mCurrentTask && !mSpeechQueue.IsEmpty() &&
-      mSpeechQueue.ElementAt(0)->GetState() ==
-          SpeechSynthesisUtterance::STATE_SPEAKING) {
+  if (!mSpeechQueue.IsEmpty() && IsWorking()) {
     mCurrentTask->Pause();
   } else {
     mHoldQueue = true;
