@@ -14,6 +14,8 @@
 #include "nsCycleCollectionParticipant.h"
 #include "nsWrapperCache.h"
 
+class nsPIDOMWindowInner;
+
 namespace mozilla {
 namespace dom {
 
@@ -33,12 +35,15 @@ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(MediaMetadata)
 
-  // WebIDL methods
-  MediaMetadata* GetParentObject() const;
+  // WebIDL Methods
+  nsPIDOMWindowInner* GetParentObject() const;
 
-  virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
+  virtual JSObject* WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) override;
 
-  static already_AddRefed<MediaMetadata> Constructor(const GlobalObject& aGlobal, const MediaMetadataInit& aInit, ErrorResult& aRv);
+  static already_AddRefed<MediaMetadata> Constructor(
+      const GlobalObject& aGlobal, const MediaMetadataInit& aInit,
+      ErrorResult& aRv);
 
   void GetTitle(nsString& aRetVal) const;
 
@@ -57,8 +62,22 @@ public:
   void SetArtwork(const Sequence<MediaImage>& aArtwork, ErrorResult& aRv);
 
 private:
-  explicit MediaMetadata();
-  ~MediaMetadata();
+ explicit MediaMetadata(nsPIDOMWindowInner* aWindow, nsString aTitle,
+                        nsString aArtist, nsString aAlbum,
+                        const Sequence<MediaImage>& aArtwork, ErrorResult& aRv);
+
+ ~MediaMetadata();
+
+ // Throw a TypeError if aArtwork contains invalid URLs.
+ void SetArtworkInternal(nsTArray<MediaImage> aArtwork, ErrorResult& aRv);
+
+ nsresult GetAbsoluteUrl(nsString& aSrc, nsString& aDest);
+
+ nsCOMPtr<nsPIDOMWindowInner> mWindow;
+ nsString mTitle;
+ nsString mArtist;
+ nsString mAlbum;
+ nsTArray<MediaImage> mArtwork;
 };
 
 } // namespace dom

@@ -4,7 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mozilla/dom/MediaMetadata.h"
 #include "mozilla/dom/MediaSession.h"
 
 namespace mozilla {
@@ -20,7 +19,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MediaSession)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-MediaSession::MediaSession() {}
+MediaSession::MediaSession() : mMediaMetadata(nullptr) {}
 
 MediaSession::~MediaSession() {}
 
@@ -40,12 +39,13 @@ MediaSession::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 already_AddRefed<MediaMetadata>
 MediaSession::GetMetadata() const
 {
-  return nullptr;
+  return do_AddRef(mMediaMetadata);
 }
 
 void
 MediaSession::SetMetadata(MediaMetadata* aMetadata)
 {
+  mMediaMetadata = aMetadata;
 }
 
 void

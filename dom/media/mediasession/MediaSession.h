@@ -49,6 +49,8 @@ public:
 
 private:
   ~MediaSession();
+
+  RefPtr<MediaMetadata> mMediaMetadata;
 };
 
 } // namespace dom
