@@ -1,0 +1,93 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <title></title>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
+</head>
+<body>
+<script>
+
+SimpleTest.waitForExplicitFinish();
+
+// const SEEK_OFFSET = 12.3;
+// const SEEK_TIME = 45.6;
+// const FAST_SEEK = true;
+const ACTIONS = [
+  "play",
+  "pause",
+  "seekbackward",
+  "seekforward",
+  "previoustrack",
+  "nexttrack",
+  "stop",
+  "seekto"
+];
+
+(async function testSetActionHandler() {
+  await setupPreference();
+
+  for (action of ACTIONS) {
+    info("Test setActionHandler for " + action);
+    fakeAction(action);
+    ok(true, "it's ok to do " + action + " without any handler");
+
+    // let expectedDetails = generateActionDetails(action);
+
+    let fired = false;
+    await setHandlerAndTakeAction(action, details => {
+      is(details.action, action, "Get expected details of " + action + " in its handler");
+      // is(details, expectedDetails, "Get expected details of " + action + " in its handler");
+      fired = !fired;
+    });
+
+    clearActionHandler(action);
+    fakeAction(action);
+
+    ok(fired, "handler of " + action + " is cleared");
+  }
+
+  SimpleTest.finish();
+})();
+
+function setupPreference() {
+  return SpecialPowers.pushPrefEnv({"set": [
+    ["media.mediasession.enabled", true],
+  ]});
+}
+
+function fakeAction(action) {
+  // let details = generateActionDetails(action);
+  // SpecialPowers.wrap(navigator.mediaSession).takeAction(details);
+  SpecialPowers.wrap(navigator.mediaSession).takeAction(action);
+}
+
+function generateActionDetails() {
+  let details = { action: action };
+  // if (action == "seekbackward" || action == "seekforward") {
+  //   details.seekOffset = SEEK_OFFSET;
+  // } else if (action == "seekto") {
+  //   details.seekTime = SEEK_TIME;
+  //   details.fastSeek = FAST_SEEK;
+  // }
+  return details;
+}
+
+function setHandlerAndTakeAction(action, handler) {
+  let promise = new Promise(function(resolve, reject) {
+    navigator.mediaSession.setActionHandler(action, details => {
+      handler(details);
+      resolve();
+    });
+  });
+  fakeAction(action);
+  return promise;
+}
+
+function clearActionHandler(action) {
+  navigator.mediaSession.setActionHandler(action, null);
+}
+
+</script>
+</body>
+</html>

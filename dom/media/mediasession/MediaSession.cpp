@@ -51,6 +51,27 @@ MediaSession::SetMetadata(MediaMetadata* aMetadata)
 void
 MediaSession::SetActionHandler(MediaSessionAction aAction, MediaSessionActionHandler* aHandler)
 {
+  size_t index = static_cast<size_t>(aAction);
+  mActionHandlers[index] = aHandler;
+}
+
+// void
+// MediaSession::TakeAction(MediaSessionActionDetails aDetails) {
+//   size_t index = static_cast<size_t>(aDetails.mAction);
+//   MediaSessionActionHandler* handler = mActionHandlers[index];
+//   if (handler) {
+//     handler->Call(aDetails);
+//   }
+// }
+
+void MediaSession::TakeAction(MediaSessionAction aAction) {
+  size_t index = static_cast<size_t>(aAction);
+  MediaSessionActionHandler* handler = mActionHandlers[index];
+  if (handler) {
+    MediaSessionActionDetails details;
+    details.mAction = aAction;
+    handler->Call(details);
+  }
 }
 
 } // namespace dom

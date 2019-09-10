@@ -24,6 +24,11 @@ callback MediaSessionActionHandler = void(MediaSessionActionDetails details);
 interface MediaSession {
   attribute MediaMetadata? metadata;
   void setActionHandler(MediaSessionAction action, MediaSessionActionHandler? handler);
+
+  // Fire the action handler. It's test-only for now.
+  [ChromeOnly]
+  // void takeAction(MediaSessionActionDetails details);
+  void takeAction(MediaSessionAction action);
 };
 
 [Constructor(optional MediaMetadataInit init = {}), Exposed=Window, Pref="media.mediasession.enabled"]

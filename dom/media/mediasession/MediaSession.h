@@ -47,10 +47,15 @@ public:
 
   void SetActionHandler(MediaSessionAction aAction, MediaSessionActionHandler* aHandler);
 
-private:
+  // void TakeAction(MediaSessionActionDetails aDetails);
+  void TakeAction(MediaSessionAction aAction);
+
+ private:
   ~MediaSession();
 
   RefPtr<MediaMetadata> mMediaMetadata;
+  RefPtr<MediaSessionActionHandler> mActionHandlers[static_cast<size_t>(
+      MediaSessionAction::EndGuard_)] = {nullptr};
 };
 
 } // namespace dom
