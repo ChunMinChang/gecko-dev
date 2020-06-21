@@ -361,6 +361,7 @@ static nsresult GetEncodedImageBuffer(imgIContainer* aImage,
                                       const nsACString& aMimeType,
                                       nsIInputStream** aStream, uint32_t* aSize,
                                       char** aBuffer) {
+  MOZ_ASSERT(aImage);
   nsCOMPtr<imgITools> imgTools = do_GetService("@mozilla.org/image/tools;1");
   if (!imgTools) {
     return NS_ERROR_FAILURE;
@@ -461,9 +462,9 @@ void WindowsSMTCProvider::LoadImageAtIndex(const size_t aIndex) {
             char* src = nullptr;
             // Only used to hold the image data
             nsCOMPtr<nsIInputStream> inputStream;
-            nsresult rv =
-                GetEncodedImageBuffer(aImage, NS_LITERAL_CSTRING(IMAGE_PNG),
-                                      getter_AddRefs(inputStream), &size, &src);
+            nsresult rv = GetEncodedImageBuffer(
+                aImage.get(), NS_LITERAL_CSTRING(IMAGE_PNG),
+                getter_AddRefs(inputStream), &size, &src);
             if (NS_FAILED(rv) || !inputStream || size == 0 || !src) {
               LOG("Failed to get the image buffer info");
               LoadImageAtIndex(aIndex + 1);
