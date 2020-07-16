@@ -57,12 +57,7 @@ class MPRISServiceHandler final : public dom::MediaControlKeySource {
  public:
   // Note that this constructor does NOT initialize the MPRIS Service but only
   // this class. The method Open() is responsible for registering and MAY FAIL.
-
-  // The image format used in MPRIS is based on the mMimeType here. Although
-  // IMAGE_JPEG or IMAGE_BMP are valid types as well but a png image with
-  // transparent background will be converted into a jpeg/bmp file with a
-  // colored background IMAGE_PNG format seems to be the best choice for now.
-  MPRISServiceHandler() : mMimeType(IMAGE_PNG){};
+  MPRISServiceHandler() = default;
   bool Open() override;
   void Close() override;
   bool IsOpened() const override;
@@ -155,8 +150,6 @@ class MPRISServiceHandler final : public dom::MediaControlKeySource {
   bool mInitialized = false;
   nsAutoCString mIdentity;
 
-  nsCString mMimeType;
-
   class MPRISMetadata : public dom::MediaMetadataBase {
    public:
     MPRISMetadata() = default;
@@ -170,15 +163,12 @@ class MPRISServiceHandler final : public dom::MediaControlKeySource {
     }
     void Clear() {
       UpdateFromMetadataBase(MediaMetadataBase::EmptyData());
-      mArtUrl = EmptyCString();
+      mArtUrl = EmptyString();
     }
 
-    nsCString mArtUrl;
+    nsString mArtUrl;
   };
   MPRISMetadata mMPRISMetadata;
-
-  // The saved image file fetched from the URL
-  nsCOMPtr<nsIFile> mLocalImageFile;
 
   mozilla::UniquePtr<mozilla::dom::FetchImageHelper> mImageFetcher;
   mozilla::MozPromiseRequestHolder<mozilla::dom::ImagePromise>
@@ -192,11 +182,7 @@ class MPRISServiceHandler final : public dom::MediaControlKeySource {
   // Load the image at index aIndex of the metadta's artwork to MPRIS
   // asynchronously
   void LoadImageAtIndex(const size_t aIndex);
-  bool SetImageToDisplay(const char* aImageData, uint32_t aDataSize);
-
-  bool RenewLocalImageFile(const char* aImageData, uint32_t aDataSize);
-  bool InitLocalImageFile();
-  void RemoveLocalImageFile();
+  bool SetImageToDisplay(const nsAString& aUrl);
 
   // Queries nsAppInfo to get the branded browser name and vendor
   void InitIdentity();
