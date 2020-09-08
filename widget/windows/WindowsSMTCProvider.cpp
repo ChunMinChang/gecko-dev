@@ -361,6 +361,8 @@ bool WindowsSMTCProvider::EnableKey(mozilla::dom::MediaControlKey aKey,
 }
 
 bool WindowsSMTCProvider::InitDisplayAndControls() {
+  MOZ_ASSERT(mWindow);
+
   // As Open() might be called multiple times, "cache" the results of the COM
   // API
   if (mControls && mDisplay) {
