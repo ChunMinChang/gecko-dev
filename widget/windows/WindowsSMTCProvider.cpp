@@ -99,38 +99,9 @@ static IAsyncInfo* GetIAsyncInfo(IAsyncOperation<unsigned int>* aAsyncOp) {
   return asyncInfo;
 }
 
-WindowsSMTCProvider::WindowsSMTCProvider() {
-  LOG("Creating an empty and invisible window");
+WindowsSMTCProvider::WindowsSMTCProvider() { InitWindow(); }
 
-  // In order to create a SMTC-Provider, we need a hWnd, which shall be created
-  // dynamically from an invisible window. This leads to the following
-  // boilerplate code.
-  WNDCLASS wnd{};
-  wnd.lpszClassName = L"Firefox-MediaKeys";
-  wnd.hInstance = nullptr;
-  wnd.lpfnWndProc = DefWindowProc;
-  GetLastError();  // Clear the error
-  RegisterClass(&wnd);
-  MOZ_ASSERT(!GetLastError());
-
-  mWindow = CreateWindowExW(0, L"Firefox-MediaKeys", L"Firefox Media Keys", 0,
-                            CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, nullptr,
-                            nullptr, nullptr, nullptr);
-  MOZ_ASSERT(mWindow);
-  MOZ_ASSERT(!GetLastError());
-}
-
-WindowsSMTCProvider::~WindowsSMTCProvider() {
-  // Dispose the window
-  MOZ_ASSERT(mWindow);
-  if (!DestroyWindow(mWindow)) {
-    LOG("Failed to destroy the hidden window. Error Code: %d", GetLastError());
-  }
-  if (!UnregisterClass(L"Firefox-MediaKeys", nullptr)) {
-    // Note that this is logged when the class wasn't even registered.
-    LOG("Failed to unregister the class. Error Code: %d", GetLastError());
-  }
-}
+WindowsSMTCProvider::~WindowsSMTCProvider() { DisposeWindow(); }
 
 bool WindowsSMTCProvider::IsOpened() const { return mInitialized; }
 
@@ -253,6 +224,41 @@ void WindowsSMTCProvider::SetSupportedMediaKeys(
   LOG("Update supported keys");
   mSupportedKeys = supportedKeys;
   UpdateButtons();
+}
+
+void WindowsSMTCProvider::InitWindow() {
+  // In order to create a SMTC-Provider, we need a hWnd, which shall be created
+  // dynamically from an invisible window.
+
+  ZeroMemory(&mWndClass, sizeof(WNDCLASS));
+  mWndClass.hInstance = reinterpret_cast<HINSTANCE>(GetModuleHandle(nullptr));
+  mWndClass.lpszClassName = L"Firefox-MediaKeys";
+  mWndClass.lpfnWndProc = DefWindowProc;
+
+  GetLastError();  // Clear the error
+  RegisterClass(&mWndClass);
+  MOZ_ASSERT(!GetLastError());
+
+  mWindow = CreateWindowExW(0, mWndClass.lpszClassName, L"Firefox Media Keys",
+                            0, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, nullptr,
+                            nullptr, mWndClass.hInstance, nullptr);
+  MOZ_ASSERT(mWindow);
+  MOZ_ASSERT(!GetLastError());
+
+  LOG("Creating an empty and invisible window=%p", mWindow);
+}
+
+void WindowsSMTCProvider::DisposeWindow() {
+  MOZ_ASSERT(mWindow);
+  LOG("Dispose the invisible window=%p", mWindow);
+  if (!DestroyWindow(mWindow)) {
+    LOG("Failed to destroy the hidden window. Error Code: %d", GetLastError());
+  }
+  mWindow = nullptr;
+  if (!UnregisterClass(mWndClass.lpszClassName, mWndClass.hInstance)) {
+    // Note that this is logged when the class wasn't even registered.
+    LOG("Failed to unregister the class. Error Code: %d", GetLastError());
+  }
 }
 
 void WindowsSMTCProvider::UnregisterEvents() {

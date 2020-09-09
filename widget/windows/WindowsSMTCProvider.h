@@ -48,6 +48,10 @@ class WindowsSMTCProvider final : public mozilla::dom::MediaControlKeySource {
 
  private:
   ~WindowsSMTCProvider();
+
+  void InitWindow();
+  void DisposeWindow();
+
   void UnregisterEvents();
   bool RegisterEvents();
 
@@ -116,6 +120,7 @@ class WindowsSMTCProvider final : public mozilla::dom::MediaControlKeySource {
   mozilla::MozPromiseRequestHolder<mozilla::dom::ImagePromise>
       mImageFetchRequest;
 
+  WNDCLASS mWndClass;
   HWND mWindow;  // handle to the invisible window
 
   // EventRegistrationTokens are used to have a handle on a callback (to remove
