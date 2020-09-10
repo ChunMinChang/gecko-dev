@@ -146,6 +146,7 @@ void WindowsSMTCProvider::Close() {
   if (mInitialized) {  // Prevent calling Set methods when init failed
     SetPlaybackState(mozilla::dom::MediaSessionPlaybackState::None);
     EnableControl(false);
+    mDisplay->ClearAll();
     mInitialized = false;
   }
 
