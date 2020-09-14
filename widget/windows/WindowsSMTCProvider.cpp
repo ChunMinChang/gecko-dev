@@ -124,12 +124,6 @@ bool WindowsSMTCProvider::Open() {
     return false;
   }
 
-  if (!UpdateButtons()) {
-    LOG("Failed to initialize the buttons");
-    Unused << EnableControl(false);
-    return false;
-  }
-
   if (!RegisterEvents()) {
     LOG("Failed to register SMTC key-event listener");
     Unused << EnableControl(false);
@@ -145,6 +139,7 @@ void WindowsSMTCProvider::Close() {
   MediaControlKeySource::Close();
   if (mInitialized) {  // Prevent calling Set methods when init failed
     SetPlaybackState(mozilla::dom::MediaSessionPlaybackState::None);
+    UpdateSupportedKeys(0);
     EnableControl(false);
     mDisplay->ClearAll();
     mInitialized = false;
@@ -217,14 +212,7 @@ void WindowsSMTCProvider::SetSupportedMediaKeys(
     supportedKeys |= GetMediaKeyMask(key);
   }
 
-  if (supportedKeys == mSupportedKeys) {
-    LOG("Supported keys stay the same");
-    return;
-  }
-
-  LOG("Update supported keys");
-  mSupportedKeys = supportedKeys;
-  UpdateButtons();
+  UpdateSupportedKeys(supportedKeys);
 }
 
 void WindowsSMTCProvider::InitWindow() {
@@ -320,7 +308,7 @@ bool WindowsSMTCProvider::EnableControl(bool aEnabled) const {
   return SUCCEEDED(mControls->put_IsEnabled(aEnabled));
 }
 
-bool WindowsSMTCProvider::UpdateButtons() const {
+bool WindowsSMTCProvider::UpdateSupportedKeys(uint32_t aSupportedKeys) {
   static const mozilla::dom::MediaControlKey kKeys[] = {
       mozilla::dom::MediaControlKey::Play, mozilla::dom::MediaControlKey::Pause,
       mozilla::dom::MediaControlKey::Previoustrack,
@@ -328,11 +316,8 @@ bool WindowsSMTCProvider::UpdateButtons() const {
 
   bool success = true;
   for (const mozilla::dom::MediaControlKey& key : kKeys) {
-    if (!EnableKey(key, IsKeySupported(key))) {
-      success = false;
-      LOG("Failed to set %s=%s", ToMediaControlKeyStr(key),
-          IsKeySupported(key) ? "true" : "false");
-    }
+    bool enabled = aSupportedKeys & GetMediaKeyMask(key);
+    success &= EnableKey(key, enabled);
   }
 
   return success;
@@ -344,7 +329,33 @@ bool WindowsSMTCProvider::IsKeySupported(
 }
 
 bool WindowsSMTCProvider::EnableKey(mozilla::dom::MediaControlKey aKey,
-                                    bool aEnable) const {
+                                    bool aEnable) {
+  MOZ_ASSERT(mControls);
+
+  if (IsKeySupported(aKey) == aEnable) {
+    LOG("%s button is already %s", ToMediaControlKeyStr(aKey),
+        aEnable ? "enabled" : "disabled");
+    return true;
+  }
+
+  if (!EnableButton(aKey, aEnable)) {
+    LOG("Failed to %s %s button", aEnable ? "enable" : "disable",
+        ToMediaControlKeyStr(aKey));
+    return false;
+  }
+
+  uint32_t mask = GetMediaKeyMask(aKey);
+  if (aEnable) {
+    mSupportedKeys |= mask;
+  } else {
+    mSupportedKeys &= ~mask;
+  }
+
+  return true;
+}
+
+bool WindowsSMTCProvider::EnableButton(mozilla::dom::MediaControlKey aKey,
+                                       bool aEnable) const {
   MOZ_ASSERT(mControls);
   switch (aKey) {
     case mozilla::dom::MediaControlKey::Play:

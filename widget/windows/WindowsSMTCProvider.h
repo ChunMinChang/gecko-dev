@@ -60,9 +60,10 @@ class WindowsSMTCProvider final : public mozilla::dom::MediaControlKeySource {
   bool EnableControl(bool aEnabled) const;
   // Sets the play, pause, next, previous buttons on the SMTC interface by
   // mSupportedKeys
-  bool UpdateButtons() const;
+  bool UpdateSupportedKeys(uint32_t aSupportedKeys);
   bool IsKeySupported(mozilla::dom::MediaControlKey aKey) const;
-  bool EnableKey(mozilla::dom::MediaControlKey aKey, bool aEnable) const;
+  bool EnableKey(mozilla::dom::MediaControlKey aKey, bool aEnable);
+  bool EnableButton(mozilla::dom::MediaControlKey aKey, bool aEnable) const;
 
   bool InitDisplayAndControls();
 
