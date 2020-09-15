@@ -88,6 +88,7 @@ class WindowsSMTCProvider final : public mozilla::dom::MediaControlKeySource {
   void CancelPendingStoreAsyncOperation() const;
 
   bool mInitialized = false;
+  bool mIsButtonCallbackSet = false;
 
   // A bit table indicating what keys are enabled
   uint32_t mSupportedKeys = 0;

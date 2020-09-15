@@ -252,15 +252,16 @@ void WindowsSMTCProvider::DisposeWindow() {
 }
 
 void WindowsSMTCProvider::UnregisterButtonCallback() {
-  if (mControls && mButtonPressedToken.value != 0) {
+  if (mControls && mIsButtonCallbackSet) {
     mControls->remove_ButtonPressed(mButtonPressedToken);
+    LOG("Button callback is unregistered");
   }
 }
 
 bool WindowsSMTCProvider::RegisterButtonCallback() {
   MOZ_ASSERT(mControls);
 
-  if (mButtonPressedToken.value) {
+  if (mIsButtonCallbackSet) {
     LOG("Button callback is already set");
     return true;
   }
@@ -281,7 +282,7 @@ bool WindowsSMTCProvider::RegisterButtonCallback() {
           return hr;
         }
 
-        if (IsOpened()) {
+        if (!IsOpened()) {
           LOG("SMTC is closed. Ignore the button event!");
           return S_OK;
         }
@@ -299,6 +300,9 @@ bool WindowsSMTCProvider::RegisterButtonCallback() {
     return false;
   }
   MOZ_ASSERT(mButtonPressedToken.value);
+
+  mIsButtonCallbackSet = true;
+  LOG("Button callback is registered");
 
   return true;
 }
