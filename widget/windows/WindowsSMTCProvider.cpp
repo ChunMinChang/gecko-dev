@@ -101,7 +101,10 @@ static IAsyncInfo* GetIAsyncInfo(IAsyncOperation<unsigned int>* aAsyncOp) {
 
 WindowsSMTCProvider::WindowsSMTCProvider() { InitWindow(); }
 
-WindowsSMTCProvider::~WindowsSMTCProvider() { DisposeWindow(); }
+WindowsSMTCProvider::~WindowsSMTCProvider() {
+  UnregisterButtonCallback();
+  DisposeWindow();
+}
 
 bool WindowsSMTCProvider::IsOpened() const { return mInitialized; }
 
@@ -124,7 +127,7 @@ bool WindowsSMTCProvider::Open() {
     return false;
   }
 
-  if (!RegisterEvents()) {
+  if (!RegisterButtonCallback()) {
     LOG("Failed to register SMTC key-event listener");
     Unused << EnableControl(false);
     return false;
@@ -144,8 +147,6 @@ void WindowsSMTCProvider::Close() {
     mDisplay->ClearAll();
     mInitialized = false;
   }
-
-  UnregisterEvents();
 
   // Cancel the pending image fetch process
   mImageFetchRequest.DisconnectIfExists();
@@ -250,32 +251,43 @@ void WindowsSMTCProvider::DisposeWindow() {
   }
 }
 
-void WindowsSMTCProvider::UnregisterEvents() {
+void WindowsSMTCProvider::UnregisterButtonCallback() {
   if (mControls && mButtonPressedToken.value != 0) {
     mControls->remove_ButtonPressed(mButtonPressedToken);
   }
 }
 
-bool WindowsSMTCProvider::RegisterEvents() {
+bool WindowsSMTCProvider::RegisterButtonCallback() {
   MOZ_ASSERT(mControls);
+
+  if (mButtonPressedToken.value) {
+    LOG("Button callback is already set");
+    return true;
+  }
+
   auto self = RefPtr<WindowsSMTCProvider>(this);
   auto callbackbtnPressed = Callback<
       ITypedEventHandler<SystemMediaTransportControls*,
                          SystemMediaTransportControlsButtonPressedEventArgs*>>(
       [this, self](ISystemMediaTransportControls*,
-                   ISystemMediaTransportControlsButtonPressedEventArgs* pArgs)
+                   ISystemMediaTransportControlsButtonPressedEventArgs* aArgs)
           -> HRESULT {
-        MOZ_ASSERT(pArgs);
+        MOZ_ASSERT(aArgs);
         SystemMediaTransportControlsButton btn;
 
-        if (FAILED(pArgs->get_Button(&btn))) {
-          LOG("SystemMediaTransportControls: ButtonPressedEvent - Could "
-              "not get Button.");
-          return S_OK;  // Propagating the error probably wouldn't help.
+        HRESULT hr = aArgs->get_Button(&btn);
+        if (FAILED(hr)) {
+          LOG("Failed to get button");
+          return hr;
+        }
+
+        if (IsOpened()) {
+          LOG("SMTC is closed. Ignore the button event!");
+          return S_OK;
         }
 
         Maybe<mozilla::dom::MediaControlKey> keyCode = TranslateKeycode(btn);
-        if (keyCode.isSome() && IsOpened()) {
+        if (keyCode.isSome()) {
           OnButtonPressed(keyCode.value());
         }
         return S_OK;
@@ -283,10 +295,10 @@ bool WindowsSMTCProvider::RegisterEvents() {
 
   if (FAILED(mControls->add_ButtonPressed(callbackbtnPressed.Get(),
                                           &mButtonPressedToken))) {
-    LOG("SystemMediaTransportControls: Failed at "
-        "registerEvents().add_ButtonPressed()");
+    LOG("Failed to set button-pressed callback");
     return false;
   }
+  MOZ_ASSERT(mButtonPressedToken.value);
 
   return true;
 }

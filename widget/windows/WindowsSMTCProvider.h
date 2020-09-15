@@ -52,8 +52,8 @@ class WindowsSMTCProvider final : public mozilla::dom::MediaControlKeySource {
   void InitWindow();
   void DisposeWindow();
 
-  void UnregisterEvents();
-  bool RegisterEvents();
+  void UnregisterButtonCallback();
+  bool RegisterButtonCallback();
 
   void OnButtonPressed(mozilla::dom::MediaControlKey aKey) const;
   // Enable the SMTC interface
