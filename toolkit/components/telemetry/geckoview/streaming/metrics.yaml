@@ -1535,3 +1535,40 @@ javascript.gc:
       - dev-telemetry-gc-alerts@mozilla.org
       - jcoppeard@mozilla.com
     expires: never
+
+media:
+  cubeb:
+    backend:
+      type: labeled_counter
+      labels:
+        - jack
+        - pulse
+        - alsa
+        - audiounit
+        - audioqueue
+        - wasapi
+        - winmm
+        - directsound
+        - sndio
+        - opensl
+        - oss
+        - audiotrack
+        - kai
+        - sun
+        - pulse-rust
+        - audiounit-rust
+        - aaudio
+      gecko_datapoint: AUDIOSTREAM_BACKEND_ID_STR
+      description: >
+        The operating system audio back-end used when successfully opening an audio stream, or whether the failure occurred on the first try or not <https://searchfox.org/mozilla-central/search?q=AUDIOSTREAM_BACKEND_ID_STR>
+      bugs:
+        - https://bugzilla.mozilla.org/show_bug.cgi?id=1280630
+        - https://bugzilla.mozilla.org/show_bug.cgi?id=1444878
+        - https://bugzilla.mozilla.org/show_bug.cgi?id=1671714
+      data_reviews:
+        - TODO
+      notification_emails:
+        - padenot@mozilla.com
+        - kinetik@flim.org
+        - cchang@mozilla.com
+      expires: never
