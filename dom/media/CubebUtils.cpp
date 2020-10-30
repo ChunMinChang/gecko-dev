@@ -126,9 +126,11 @@ int sInCommunicationCount = 0;
 const char kBrandBundleURL[] = "chrome://branding/locale/brand.properties";
 
 const char* AUDIOSTREAM_BACKEND_ID_STR[] = {
-    "jack",   "pulse",      "alsa",        "audiounit", "audioqueue",
-    "wasapi", "winmm",      "directsound", "sndio",     "opensl",
-    "oss",    "audiotrack", "kai"};
+    "jack",       "pulse",  "alsa",       "audiounit",
+    "audioqueue", "wasapi", "winmm",      "directsound",
+    "sndio",      "opensl", "oss",        "audiotrack",
+    "kai",        "sun",    "pulse-rust", "audiounit-rust",
+    "aaudio"};
 /* Index for failures to create an audio stream the first time. */
 const int CUBEB_BACKEND_INIT_FAILURE_FIRST =
     ArrayLength(AUDIOSTREAM_BACKEND_ID_STR);
