@@ -204,7 +204,7 @@
     "products": ["firefox", "fennec"],
     "alert_emails": ["padenot@mozilla.com", "kinetik@flim.org"],
     "bug_numbers": [1280630, 1444878],
-    "expires_in_version": "70",
+    "expires_in_version": "never",
     "kind": "enumerated",
     "n_values": 16,
     "description": "The operating system audio back-end used when successfully opening an audio stream, or whether the failure occurred on the first try or not <https://searchfox.org/mozilla-central/search?q=AUDIOSTREAM_BACKEND_ID_STR>",
