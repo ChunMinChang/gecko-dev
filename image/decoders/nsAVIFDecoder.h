@@ -43,11 +43,17 @@ class nsAVIFDecoder final : public Decoder {
 
   typedef int Dav1dResult;
   Dav1dResult DecodeWithDav1d(const Mp4parseByteData& aPrimaryItem,
+                              const Maybe<Mp4parseByteData>& aAlphaItem,
                               layers::PlanarYCbCrData& aDecodedData);
+  Dav1dResult DecodeWithDav1dInternal(const Mp4parseByteData& aBytes,
+                                      Dav1dPicture& aPicture);
+  // static layers::PlanarYCbCrData Dav1dPictureToYCbCrData(Dav1dPicture&
+  // aPicture);
 
   enum class NonAOMCodecError { NoFrame, SizeOverflow };
   typedef Variant<aom_codec_err_t, NonAOMCodecError> AOMResult;
   AOMResult DecodeWithAOM(const Mp4parseByteData& aPrimaryItem,
+                          const Maybe<Mp4parseByteData>& aAlphaItem,
                           layers::PlanarYCbCrData& aDecodedData);
 
   enum class NonDecoderResult {
