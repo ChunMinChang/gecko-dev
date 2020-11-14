@@ -1,7 +1,6 @@
 //! Implement Fallible HashMap
 use super::TryClone;
 use crate::TryReserveError;
-use core::borrow::Borrow;
 use core::default::Default;
 use core::hash::Hash;
 
@@ -26,7 +25,7 @@ where
 
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&V>
     where
-        K: Borrow<Q>,
+        K: core::borrow::Borrow<Q>,
         Q: Hash + Eq,
     {
         self.inner.get(k)
@@ -35,14 +34,6 @@ where
     pub fn insert(&mut self, k: K, v: V) -> Result<Option<V>, TryReserveError> {
         self.reserve(if self.inner.capacity() == 0 { 4 } else { 1 })?;
         Ok(self.inner.insert(k, v))
-    }
-
-    pub fn remove<Q: ?Sized>(&mut self, k: &Q) -> Option<V>
-    where
-        K: Borrow<Q>,
-        Q: Hash + Eq,
-    {
-        self.inner.remove(k)
     }
 
     fn reserve(&mut self, additional: usize) -> Result<(), TryReserveError> {

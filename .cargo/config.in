@@ -12,11 +12,6 @@ git = "https://github.com/mozilla/neqo"
 replace-with = "vendored-sources"
 tag = "v0.4.14"
 
-[source."https://github.com/mozilla/mp4parse-rust"]
-git = "https://github.com/mozilla/mp4parse-rust"
-replace-with = "vendored-sources"
-rev = "f7c35a30ff25521bebe64c19d3f306569ecb5385"
-
 [source."https://github.com/mozilla/application-services"]
 git = "https://github.com/mozilla/application-services"
 replace-with = "vendored-sources"
@@ -76,6 +71,11 @@ rev = "ed8bac8812e9f335d5fadd0f4ece96981aba88a3"
 git = "https://github.com/PLSysSec/lucet_sandbox_compiler"
 replace-with = "vendored-sources"
 rev = "477d8fc53a64705a9d3fbcce9de92f4988558525"
+
+[source."https://github.com/ChunMinChang/mp4parse-rust/"]
+branch = "avif-transparency"
+git = "https://github.com/ChunMinChang/mp4parse-rust/"
+replace-with = "vendored-sources"
 
 [source."https://github.com/ChunMinChang/cubeb-coreaudio-rs"]
 git = "https://github.com/ChunMinChang/cubeb-coreaudio-rs"

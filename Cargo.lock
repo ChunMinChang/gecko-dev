@@ -1416,6 +1416,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fallible_collections"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f46efe214a175afc66b322e675bd8d289c5ccf11a52882fc162baab42c648e16"
+dependencies = [
+ "hashbrown",
+]
+
+[[package]]
 name = "ffi-support"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3283,11 +3292,11 @@ dependencies = [
 [[package]]
 name = "mp4parse"
 version = "0.11.4"
-source = "git+https://github.com/mozilla/mp4parse-rust?rev=f7c35a30ff25521bebe64c19d3f306569ecb5385#f7c35a30ff25521bebe64c19d3f306569ecb5385"
+source = "git+https://github.com/ChunMinChang/mp4parse-rust/?branch=avif-transparency#463758c86770676e2c1197d49c80d2caa936acf3"
 dependencies = [
  "bitreader",
  "byteorder",
- "fallible_collections",
+ "fallible_collections 0.3.0",
  "hashbrown",
  "log",
  "num-traits",
@@ -3301,10 +3310,10 @@ version = "0.1.0"
 [[package]]
 name = "mp4parse_capi"
 version = "0.11.4"
-source = "git+https://github.com/mozilla/mp4parse-rust?rev=f7c35a30ff25521bebe64c19d3f306569ecb5385#f7c35a30ff25521bebe64c19d3f306569ecb5385"
+source = "git+https://github.com/ChunMinChang/mp4parse-rust/?branch=avif-transparency#463758c86770676e2c1197d49c80d2caa936acf3"
 dependencies = [
  "byteorder",
- "fallible_collections",
+ "fallible_collections 0.2.0",
  "log",
  "mp4parse",
  "num-traits",
