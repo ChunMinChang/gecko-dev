@@ -42,18 +42,28 @@ class nsAVIFDecoder final : public Decoder {
   static void FreeDav1dData(const uint8_t* buf, void* cookie);
 
   typedef int Dav1dResult;
+  struct AVIFImageData : layers::PlanarYCbCrData {
+    uint8_t* mAlphaChannel = nullptr;
+    int32_t mAlphaStride = 0;
+    gfx::IntSize mAlphaPicSize = gfx::IntSize(0, 0);
+    gfx::ColorDepth mAlphaColorDepth = gfx::ColorDepth::COLOR_8;
+    gfx::ColorRange mAlphaColorRange = gfx::ColorRange::LIMITED;
+
+    bool hasAlpha() { return mAlphaChannel; }
+  };
   Dav1dResult DecodeWithDav1d(const Mp4parseByteData& aPrimaryItem,
                               const Maybe<Mp4parseByteData>& aAlphaItem,
-                              layers::PlanarYCbCrData& aDecodedData);
+                              AVIFImageData& aDecodedData);
   Dav1dResult DecodeWithDav1dInternal(const Mp4parseByteData& aBytes,
                                       Dav1dPicture& aPicture);
-  // static layers::PlanarYCbCrData Dav1dPictureToYCbCrData(Dav1dPicture&
-  // aPicture);
+  static void Dav1dPictureToAVIFImageData(Dav1dPicture& aPicture,
+                                          Maybe<Dav1dPicture>& aAlphaPlane,
+                                          nsAVIFDecoder::AVIFImageData& aImage,
+                                          nsAVIFDecoder* aDecoder);
 
   enum class NonAOMCodecError { NoFrame, SizeOverflow };
   typedef Variant<aom_codec_err_t, NonAOMCodecError> AOMResult;
   AOMResult DecodeWithAOM(const Mp4parseByteData& aPrimaryItem,
-                          const Maybe<Mp4parseByteData>& aAlphaItem,
                           layers::PlanarYCbCrData& aDecodedData);
 
   enum class NonDecoderResult {
@@ -77,6 +87,7 @@ class nsAVIFDecoder final : public Decoder {
   Maybe<Variant<aom_codec_ctx_t, Dav1dContext*>> mCodecContext;
 
   Maybe<Dav1dPicture> mDav1dPicture;
+  Maybe<Dav1dPicture> mAlphaPlane;
 
   Vector<uint8_t> mBufferedData;
 
