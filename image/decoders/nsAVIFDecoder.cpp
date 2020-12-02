@@ -345,18 +345,23 @@ void nsAVIFDecoder::Dav1dPictureToAVIFImageData(
   switch (aPicture.seq_hdr->mtrx) {
     case DAV1D_MC_BT601:
       aImage.mYUVColorSpace = gfx::YUVColorSpace::BT601;
+      printf_stderr("\tColorSpace: DAV1D_MC_BT601\n");
       break;
     case DAV1D_MC_BT709:
       aImage.mYUVColorSpace = gfx::YUVColorSpace::BT709;
+      printf_stderr("\tColorSpace: DAV1D_MC_BT709\n");
       break;
     case DAV1D_MC_BT2020_NCL:
       aImage.mYUVColorSpace = gfx::YUVColorSpace::BT2020;
+      printf_stderr("\tColorSpace: DAV1D_MC_BT2020_NCL\n");
       break;
     case DAV1D_MC_BT2020_CL:
       aImage.mYUVColorSpace = gfx::YUVColorSpace::BT2020;
+      printf_stderr("\tColorSpace: DAV1D_MC_BT2020_CL\n");
       break;
     case DAV1D_MC_IDENTITY:
       aImage.mYUVColorSpace = gfx::YUVColorSpace::Identity;
+      printf_stderr("\tColorSpace: DAV1D_MC_IDENTITY\n");
       break;
     case DAV1D_MC_CHROMAT_NCL:
     case DAV1D_MC_CHROMAT_CL:
@@ -364,15 +369,19 @@ void nsAVIFDecoder::Dav1dPictureToAVIFImageData(
       switch (aPicture.seq_hdr->pri) {
         case DAV1D_COLOR_PRI_BT601:
           aImage.mYUVColorSpace = gfx::YUVColorSpace::BT601;
+          printf_stderr("\tColorSpace: DAV1D_COLOR_PRI_BT601\n");
           break;
         case DAV1D_COLOR_PRI_BT709:
           aImage.mYUVColorSpace = gfx::YUVColorSpace::BT709;
+          printf_stderr("\tColorSpace: DAV1D_COLOR_PRI_BT709\n");
           break;
         case DAV1D_COLOR_PRI_BT2020:
           aImage.mYUVColorSpace = gfx::YUVColorSpace::BT2020;
+          printf_stderr("\tColorSpace: DAV1D_COLOR_PRI_BT2020\n");
           break;
         default:
           aImage.mYUVColorSpace = gfx::YUVColorSpace::UNKNOWN;
+          printf_stderr("\tColorSpace: UNKNOWN\n");
           break;
       }
       break;
@@ -670,6 +679,29 @@ LexerResult nsAVIFDecoder::DoDecode(SourceBufferIterator& aIterator,
                                              : TerminalState::FAILURE);
 }
 
+void fill_alpha_to_rgba_row(uint8_t* alpha, uint8_t* rgba, int32_t width) {
+  size_t offset = 3;
+  for (int32_t w = 0; w < width; ++w) {
+    rgba[offset] = alpha[w];
+    offset += 4;
+  }
+}
+
+void fill_alpha_to_rgba(uint8_t* alpha, int32_t alpha_stride, uint8_t* rgba,
+                        int32_t width, int32_t height,
+                        size_t rgba_bytes_per_pixel) {
+  MOZ_ASSERT(rgba_bytes_per_pixel == 4);
+  MOZ_ASSERT(alpha_stride >= width);
+
+  const size_t rgba_stride = width * rgba_bytes_per_pixel;
+  uint8_t* src = alpha;
+  for (int32_t h = 0; h < height; ++h) {
+    fill_alpha_to_rgba_row(src, rgba, width);
+    src += alpha_stride;
+    rgba += rgba_stride;
+  }
+}
+
 nsAVIFDecoder::DecodeResult nsAVIFDecoder::Decode(
     SourceBufferIterator& aIterator, IResumable* aOnResume) {
   MOZ_LOG(sAVIFLog, LogLevel::Debug,
@@ -769,8 +801,7 @@ nsAVIFDecoder::DecodeResult nsAVIFDecoder::Decode(
 
   // TODO: This doesn't account for the alpha plane in a separate frame
   // TODO: gfx::ConvertYCbCrAToARGB only works for I420 type now
-  const bool hasAlpha = decodedData.hasAlpha() &&
-                        mDav1dPicture->p.layout == DAV1D_PIXEL_LAYOUT_I420;
+  const bool hasAlpha = decodedData.hasAlpha();
   if (hasAlpha) {
     PostHasTransparency();
   }
@@ -824,21 +855,86 @@ nsAVIFDecoder::DecodeResult nsAVIFDecoder::Decode(
   SurfacePipeFlags pipeFlags = SurfacePipeFlags();
   if (hasAlpha) {
     MOZ_ASSERT(mAlphaPlane.isSome() && mDav1dPicture.isSome() &&
-               mDav1dPicture->p.layout == DAV1D_PIXEL_LAYOUT_I420);
+               (mDav1dPicture->p.layout == DAV1D_PIXEL_LAYOUT_I420 ||
+                mDav1dPicture->p.layout == DAV1D_PIXEL_LAYOUT_I444));
     MOZ_ASSERT(decodedData.mAlphaStride == decodedData.mYStride);
     MOZ_ASSERT(decodedData.mAlphaPicSize == decodedData.mPicSize);
     MOZ_ASSERT(decodedData.mAlphaColorDepth == decodedData.mColorDepth);
+    MOZ_ASSERT(format == SurfaceFormat::OS_RGBA);
 
-    MOZ_LOG(sAVIFLog, LogLevel::Debug,
-            ("[this=%p] calling gfx::ConvertYCbCrAToARGB", this));
-    // TODO: It only works for I420 type now
-    gfx::ConvertYCbCrAToARGB(decodedData.mYChannel, decodedData.mCbChannel,
-                             decodedData.mCrChannel, decodedData.mAlphaChannel,
-                             decodedData.mYStride, decodedData.mCbCrStride,
-                             rgbBuf.get(), rgbStride.value(), rgbSize.width,
-                             rgbSize.height);
     if (premultipliedAlpha) {
       pipeFlags |= SurfacePipeFlags::PREMULTIPLY_ALPHA;
+    }
+
+    if (mDav1dPicture->p.layout == DAV1D_PIXEL_LAYOUT_I420) {
+      MOZ_LOG(sAVIFLog, LogLevel::Debug,
+              ("[this=%p] calling gfx::ConvertYCbCrAToARGB", this));
+      // TODO: It only works for I420 type with BT601 color space
+      gfx::ConvertYCbCrAToARGB(
+          decodedData.mYChannel, decodedData.mCbChannel, decodedData.mCrChannel,
+          decodedData.mAlphaChannel, decodedData.mYStride,
+          decodedData.mCbCrStride, rgbBuf.get(), rgbStride.value(),
+          rgbSize.width, rgbSize.height);
+      int32_t m_h = rgbSize.height / 2;
+      int32_t m_w = rgbSize.width / 2;
+      int32_t stride = rgbSize.width * bytesPerPixel;
+      size_t offset = (m_h - 1) * stride + (m_w - 1) * bytesPerPixel;
+      uint8_t* b_ptr = rgbBuf.get();
+      uint8_t* m_ptr = rgbBuf.get() + offset;
+      printf_stderr("\n\n========== I420 w BT601 ==========\n");
+      printf_stderr("\n\n----- left-top -----\n");
+      printf_stderr("b[%d]: Hex: 0x%x (Dec: %d)\n", 0, b_ptr[0], b_ptr[0]);
+      printf_stderr("b[%d]: Hex: 0x%x (Dec: %d)\n", 1, b_ptr[1], b_ptr[1]);
+      printf_stderr("b[%d]: Hex: 0x%x (Dec: %d)\n", 2, b_ptr[2], b_ptr[2]);
+      printf_stderr("b[%d]: Hex: 0x%x (Dec: %d)\n", 3, b_ptr[3], b_ptr[3]);
+      printf_stderr("\n\n----- middle -----\n");
+      printf_stderr("m[%d]: Hex: 0x%x (Dec: %d)\n", 0, m_ptr[0], m_ptr[0]);
+      printf_stderr("m[%d]: Hex: 0x%x (Dec: %d)\n", 1, m_ptr[1], m_ptr[1]);
+      printf_stderr("m[%d]: Hex: 0x%x (Dec: %d)\n", 2, m_ptr[2], m_ptr[2]);
+      printf_stderr("m[%d]: Hex: 0x%x (Dec: %d)\n", 3, m_ptr[3], m_ptr[3]);
+    } else {
+      MOZ_ASSERT(bytesPerPixel == 4);
+
+      MOZ_LOG(sAVIFLog, LogLevel::Debug,
+              ("[this=%p] calling gfx::ConvertYCbCrToRGB", this));
+
+      gfx::ConvertYCbCrToRGB(decodedData, format, rgbSize, rgbBuf.get(),
+                             rgbStride.value());
+
+      int32_t m_h = rgbSize.height / 2;
+      int32_t m_w = rgbSize.width / 2;
+      int32_t stride = rgbSize.width * bytesPerPixel;
+      size_t offset = (m_h - 1) * stride + (m_w - 1) * bytesPerPixel;
+      uint8_t* b_ptr = rgbBuf.get();
+      uint8_t* m_ptr = rgbBuf.get() + offset;
+      printf_stderr("\n\n========== other ==========\n");
+      printf_stderr("\n\n----- left-top -----\n");
+      printf_stderr("b[%d]: Hex: 0x%x (Dec: %d)\n", 0, b_ptr[0], b_ptr[0]);
+      printf_stderr("b[%d]: Hex: 0x%x (Dec: %d)\n", 1, b_ptr[1], b_ptr[1]);
+      printf_stderr("b[%d]: Hex: 0x%x (Dec: %d)\n", 2, b_ptr[2], b_ptr[2]);
+      printf_stderr("b[%d]: Hex: 0x%x (Dec: %d)\n", 3, b_ptr[3], b_ptr[3]);
+      printf_stderr("\n\n----- middle -----\n");
+      printf_stderr("m[%d]: Hex: 0x%x (Dec: %d)\n", 0, m_ptr[0], m_ptr[0]);
+      printf_stderr("m[%d]: Hex: 0x%x (Dec: %d)\n", 1, m_ptr[1], m_ptr[1]);
+      printf_stderr("m[%d]: Hex: 0x%x (Dec: %d)\n", 2, m_ptr[2], m_ptr[2]);
+      printf_stderr("m[%d]: Hex: 0x%x (Dec: %d)\n", 3, m_ptr[3], m_ptr[3]);
+
+      MOZ_LOG(sAVIFLog, LogLevel::Debug,
+              ("[this=%p] then fill alpha data", this));
+      fill_alpha_to_rgba(decodedData.mAlphaChannel, decodedData.mAlphaStride,
+                         rgbBuf.get(), rgbSize.width, rgbSize.height,
+                         bytesPerPixel);
+
+      printf_stderr("\n\n----- left-top -----\n");
+      printf_stderr("> b[%d]: Hex: 0x%x (Dec: %d)\n", 0, b_ptr[0], b_ptr[0]);
+      printf_stderr("> b[%d]: Hex: 0x%x (Dec: %d)\n", 1, b_ptr[1], b_ptr[1]);
+      printf_stderr("> b[%d]: Hex: 0x%x (Dec: %d)\n", 2, b_ptr[2], b_ptr[2]);
+      printf_stderr("> b[%d]: Hex: 0x%x (Dec: %d)\n", 3, b_ptr[3], b_ptr[3]);
+      printf_stderr("\n\n----- middle -----\n");
+      printf_stderr("> m[%d]: Hex: 0x%x (Dec: %d)\n", 0, m_ptr[0], m_ptr[0]);
+      printf_stderr("> m[%d]: Hex: 0x%x (Dec: %d)\n", 1, m_ptr[1], m_ptr[1]);
+      printf_stderr("> m[%d]: Hex: 0x%x (Dec: %d)\n", 2, m_ptr[2], m_ptr[2]);
+      printf_stderr("> m[%d]: Hex: 0x%x (Dec: %d)\n", 3, m_ptr[3], m_ptr[3]);
     }
   } else {
     MOZ_LOG(sAVIFLog, LogLevel::Debug,
