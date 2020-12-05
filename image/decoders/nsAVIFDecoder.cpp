@@ -47,6 +47,7 @@ struct YCbCrAData : layers::PlanarYCbCrData {
   gfx::IntSize mAlphaPicSize = gfx::IntSize(0, 0);
   gfx::ColorDepth mAlphaColorDepth = gfx::ColorDepth::UNKNOWN;
   gfx::ColorRange mAlphaColorRange = gfx::ColorRange::UNKNOWN;
+  bool mPremultipliedAlpha = false;
 
   bool hasAlpha() { return mAlphaChannel; }
 };
@@ -89,6 +90,28 @@ class Parser {
     return mPrimaryItem.ptr();
   }
 
+  struct AlphaByteData {
+    Mp4parseByteData alphaItem;
+    bool premultipliedAlpha;
+  };
+  AlphaByteData* GetAlphaData() {
+    if (mAlphaData.isNothing()) {
+      AlphaByteData alphaData = {};
+      Mp4parseStatus status = mp4parse_avif_get_alpha_item(
+          mParser, &(alphaData.alphaItem), &(alphaData.premultipliedAlpha));
+      MOZ_LOG(sAVIFLog, LogLevel::Debug,
+              ("[this=%p] mp4parse_avif_get_alpha_item -> %d; length: %u, "
+               "premultipliedAlpha: %d",
+               this, status, alphaData.alphaItem.length,
+               alphaData.premultipliedAlpha));
+      if (status != MP4PARSE_STATUS_OK) {
+        return nullptr;
+      }
+      mAlphaData.emplace(alphaData);
+    }
+    return mAlphaData.ptr();
+  }
+
  private:
   explicit Parser(const Mp4parseIo* aIo) : mIo(aIo) {
     MOZ_ASSERT(mIo);
@@ -98,6 +121,7 @@ class Parser {
   const Mp4parseIo* mIo;
   Mp4parseAvifParser* mParser = nullptr;
   Maybe<Mp4parseByteData> mPrimaryItem;
+  Maybe<AlphaByteData> mAlphaData;
 };
 
 // An interface to do decode and get the decoded data
@@ -137,8 +161,7 @@ class ImageDecoder {
   const Mp4parseIo* mIo;
   UniquePtr<Parser> mParser;
 
-  // The YCbCrAData is valid before ImageDecoder is dead and after Decode()
-  // succeeds
+  // The YCbCrAData is valid after Decode() succeeds
   Maybe<YCbCrAData> mDecodedData;
 };
 
@@ -149,6 +172,10 @@ class Dav1dDecoder : ImageDecoder {
 
     if (mPicture) {
       dav1d_picture_unref(mPicture.take().ptr());
+    }
+
+    if (mAlphaPlane) {
+      dav1d_picture_unref(mAlphaPlane.take().ptr());
     }
 
     MOZ_ASSERT(mContext);
@@ -187,7 +214,20 @@ class Dav1dDecoder : ImageDecoder {
       return AsVariant(r);
     }
 
-    mDecodedData.emplace(Dav1dPictureToYCbCrAData(mPicture.ptr(), nullptr));
+    Parser::AlphaByteData* alphaData = mParser->GetAlphaData();
+    if (alphaData) {
+      mAlphaPlane.emplace();
+      Dav1dResult r = GetPicture(&(alphaData->alphaItem), mAlphaPlane.ptr(),
+                                 aIsMetadataDecode);
+      if (r != 0) {
+        mAlphaPlane.reset();
+        return AsVariant(r);
+      }
+    }
+
+    mDecodedData.emplace(Dav1dPictureToYCbCrAData(
+        mPicture.ptr(), mAlphaPlane.ptrOr(nullptr),
+        alphaData ? alphaData->premultipliedAlpha : false));
     return AsVariant(r);
   }
 
@@ -262,13 +302,15 @@ class Dav1dDecoder : ImageDecoder {
   }
 
   static YCbCrAData Dav1dPictureToYCbCrAData(Dav1dPicture* aPicture,
-                                             Dav1dPicture* aAlphaPlane);
+                                             Dav1dPicture* aAlphaPlane,
+                                             bool aPremultipliedAlpha);
 
   Dav1dContext* mContext = nullptr;
 
-  // The picture is allocated once Decode() succeeds and will be deallocated
+  // The pictures are allocated once Decode() succeeds and will be deallocated
   // when Dav1dDecoder is destroyed
   Maybe<Dav1dPicture> mPicture;
+  Maybe<Dav1dPicture> mAlphaPlane;
 };
 
 class AOMDecoder : ImageDecoder {
@@ -487,7 +529,8 @@ class ImageDecoderderFactory {
 
 /* static */
 YCbCrAData Dav1dDecoder::Dav1dPictureToYCbCrAData(Dav1dPicture* aPicture,
-                                                  Dav1dPicture* aAlphaPlane) {
+                                                  Dav1dPicture* aAlphaPlane,
+                                                  bool aPremultipliedAlpha) {
   MOZ_ASSERT(aPicture);
 
   static_assert(std::is_same<int, decltype(aPicture->p.w)>::value);
@@ -584,6 +627,7 @@ YCbCrAData Dav1dDecoder::Dav1dPictureToYCbCrAData(Dav1dPicture* aPicture,
     data.mAlphaColorRange = aAlphaPlane->seq_hdr->color_range
                                 ? gfx::ColorRange::FULL
                                 : gfx::ColorRange::LIMITED;
+    data.mPremultipliedAlpha = aPremultipliedAlpha;
   }
 
   return data;
@@ -721,8 +765,7 @@ nsAVIFDecoder::DecodeResult nsAVIFDecoder::Decode(
 
   PostSize(decodedData.mPicSize.width, decodedData.mPicSize.height);
 
-  // TODO: This doesn't account for the alpha plane in a separate frame
-  const bool hasAlpha = false;
+  const bool hasAlpha = decodedData.hasAlpha();
   if (hasAlpha) {
     PostHasTransparency();
   }
@@ -738,12 +781,17 @@ nsAVIFDecoder::DecodeResult nsAVIFDecoder::Decode(
   AccumulateCategorical(
       gColorDepthLabel[static_cast<size_t>(decodedData.mColorDepth)]);
 
-  gfx::SurfaceFormat format =
-      hasAlpha ? SurfaceFormat::OS_RGBA : SurfaceFormat::OS_RGBX;
   const IntSize intrinsicSize = Size();
   IntSize rgbSize = intrinsicSize;
 
+  // Get suggested format and size. Note that GetYCbCrToRGBDestFormatAndSize
+  // force format to be B8G8R8X8 if it's not.
+  gfx::SurfaceFormat format = SurfaceFormat::OS_RGBX;
   gfx::GetYCbCrToRGBDestFormatAndSize(decodedData, format, rgbSize);
+  if (hasAlpha) {
+    format = SurfaceFormat::OS_RGBA;
+  }
+
   const int bytesPerPixel = BytesPerPixel(format);
 
   const CheckedInt rgbStride = CheckedInt<int>(rgbSize.width) * bytesPerPixel;
@@ -768,16 +816,35 @@ nsAVIFDecoder::DecodeResult nsAVIFDecoder::Decode(
     return AsVariant(NonDecoderResult::OutOfMemory);
   }
 
-  MOZ_LOG(sAVIFLog, LogLevel::Debug,
-          ("[this=%p] calling gfx::ConvertYCbCrToRGB", this));
-  gfx::ConvertYCbCrToRGB(decodedData, format, rgbSize, rgbBuf.get(),
-                         rgbStride.value());
+  if (hasAlpha) {
+    MOZ_ASSERT(decodedData.mAlphaStride == decodedData.mYStride);
+    MOZ_ASSERT(decodedData.mAlphaPicSize == decodedData.mPicSize);
+    MOZ_ASSERT(decodedData.mAlphaColorDepth == decodedData.mColorDepth);
+    MOZ_ASSERT(bytesPerPixel == 4);
 
+    MOZ_LOG(sAVIFLog, LogLevel::Debug,
+            ("[this=%p] calling gfx::ConvertYCbCrAToARGB", this));
+    gfx::ConvertYCbCrAToARGB(decodedData.mYChannel, decodedData.mCbChannel,
+                             decodedData.mCrChannel, decodedData.mAlphaChannel,
+                             decodedData.mYStride, decodedData.mCbCrStride,
+                             rgbBuf.get(), rgbStride.value(), rgbSize.width,
+                             rgbSize.height);
+  } else {
+    MOZ_LOG(sAVIFLog, LogLevel::Debug,
+            ("[this=%p] calling gfx::ConvertYCbCrToRGB", this));
+    gfx::ConvertYCbCrToRGB(decodedData, format, rgbSize, rgbBuf.get(),
+                           rgbStride.value());
+  }
+
+  SurfacePipeFlags pipeFlags = SurfacePipeFlags();
+  if (hasAlpha && decodedData.mPremultipliedAlpha) {
+    pipeFlags |= SurfacePipeFlags::PREMULTIPLY_ALPHA;
+  }
   MOZ_LOG(sAVIFLog, LogLevel::Debug,
           ("[this=%p] calling SurfacePipeFactory::CreateSurfacePipe", this));
   Maybe<SurfacePipe> pipe = SurfacePipeFactory::CreateSurfacePipe(
       this, rgbSize, OutputSize(), FullFrame(), format, format, Nothing(),
-      nullptr, SurfacePipeFlags());
+      nullptr, pipeFlags);
 
   if (!pipe) {
     MOZ_LOG(sAVIFLog, LogLevel::Debug,
