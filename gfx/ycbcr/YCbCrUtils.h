@@ -24,6 +24,23 @@ ConvertYCbCrToRGB(const layers::PlanarYCbCrData& aData,
                   unsigned char* aDestBuffer,
                   int32_t aStride);
 
+struct YCbCrAData : layers::PlanarYCbCrData {
+  uint8_t* mAlphaChannel = nullptr;
+  int32_t mAlphaStride = 0;
+  gfx::IntSize mAlphaPicSize = gfx::IntSize(0, 0);
+  gfx::ColorDepth mAlphaColorDepth = gfx::ColorDepth::UNKNOWN;
+  gfx::ColorRange mAlphaColorRange = gfx::ColorRange::UNKNOWN;
+  bool mPremultipliedAlpha = false;
+
+  bool hasAlpha() { return mAlphaChannel; }
+};
+
+void ConvertYCbCrAToARGB(const YCbCrAData& aData,
+                         const SurfaceFormat& aDestFormat,
+                         const IntSize& aDestSize,
+                         unsigned char* aDestBuffer,
+                         int32_t aStride);
+
 // Currently this function only has support for I420 type.
 void
 ConvertYCbCrAToARGB(const uint8_t* aSrcY,

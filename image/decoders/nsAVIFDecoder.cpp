@@ -41,17 +41,6 @@ static const LABELS_AVIF_YUV_COLOR_SPACE gColorSpaceLabel[static_cast<size_t>(
     LABELS_AVIF_YUV_COLOR_SPACE::BT2020, LABELS_AVIF_YUV_COLOR_SPACE::identity,
     LABELS_AVIF_YUV_COLOR_SPACE::unknown};
 
-struct YCbCrAData : layers::PlanarYCbCrData {
-  uint8_t* mAlphaChannel = nullptr;
-  int32_t mAlphaStride = 0;
-  gfx::IntSize mAlphaPicSize = gfx::IntSize(0, 0);
-  gfx::ColorDepth mAlphaColorDepth = gfx::ColorDepth::UNKNOWN;
-  gfx::ColorRange mAlphaColorRange = gfx::ColorRange::UNKNOWN;
-  bool mPremultipliedAlpha = false;
-
-  bool hasAlpha() { return mAlphaChannel; }
-};
-
 class Parser {
  public:
   static Parser* Create(const Mp4parseIo* aIo) {
@@ -824,11 +813,8 @@ nsAVIFDecoder::DecodeResult nsAVIFDecoder::Decode(
 
     MOZ_LOG(sAVIFLog, LogLevel::Debug,
             ("[this=%p] calling gfx::ConvertYCbCrAToARGB", this));
-    gfx::ConvertYCbCrAToARGB(decodedData.mYChannel, decodedData.mCbChannel,
-                             decodedData.mCrChannel, decodedData.mAlphaChannel,
-                             decodedData.mYStride, decodedData.mCbCrStride,
-                             rgbBuf.get(), rgbStride.value(), rgbSize.width,
-                             rgbSize.height);
+    gfx::ConvertYCbCrAToARGB(decodedData, format, rgbSize, rgbBuf.get(),
+                             rgbStride.value());
   } else {
     MOZ_LOG(sAVIFLog, LogLevel::Debug,
             ("[this=%p] calling gfx::ConvertYCbCrToRGB", this));

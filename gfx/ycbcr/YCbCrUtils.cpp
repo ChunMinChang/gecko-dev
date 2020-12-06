@@ -256,6 +256,71 @@ ConvertYCbCrToRGB(const layers::PlanarYCbCrData& aData,
 #endif
 }
 
+void FillAlphaToRGBARow(uint8_t* aAlpha, uint8_t* aBuffer, int32_t aWidth) {
+  size_t offset = 3;
+  for (int32_t w = 0; w < aWidth; ++w) {
+    aBuffer[offset] = aAlpha[w];
+    offset += 4;
+  }
+}
+
+void FillAlphaToRGBA(uint8_t* aAlpha, int32_t aAlphaStride, uint8_t* aBuffer,
+                     int32_t aWidth, int32_t aHeight) {
+  MOZ_ASSERT(aAlphaStride >= aWidth);
+
+  const size_t rgbaStride = aWidth * 4;  // bytes per pixel is 4
+  uint8_t* src = aAlpha;
+  for (int32_t h = 0; h < aHeight; ++h) {
+    FillAlphaToRGBARow(src, aBuffer, aWidth);
+    src += aAlphaStride;
+    aBuffer += rgbaStride;
+  }
+}
+
+void ConvertYCbCrAToARGB(const YCbCrAData& aData,
+                         const SurfaceFormat& aDestFormat,
+                         const IntSize& aDestSize, unsigned char* aDestBuffer,
+                         int32_t aStride) {
+  MOZ_ASSERT(aDestFormat == SurfaceFormat::OS_RGBA);
+  MOZ_ASSERT(aDestSize == aData.mPicSize);
+
+  // ConvertYCbCrToRGB et al. assume the chroma planes are rounded up if the
+  // luma plane is odd sized. Monochrome images have 0-sized CbCr planes
+  MOZ_ASSERT(aData.mCbCrSize.width == aData.mYSize.width ||
+             aData.mCbCrSize.width == (aData.mYSize.width + 1) >> 1 ||
+             aData.mCbCrSize.width == 0);
+  MOZ_ASSERT(aData.mCbCrSize.height == aData.mYSize.height ||
+             aData.mCbCrSize.height == (aData.mYSize.height + 1) >> 1 ||
+             aData.mCbCrSize.height == 0);
+
+  YUVType yuvtype = TypeFromSize(aData.mYSize.width, aData.mYSize.height,
+                                 aData.mCbCrSize.width, aData.mCbCrSize.height);
+
+  if (yuvtype == YV12) {
+    // Currently this function only has support for I420 type
+    ConvertYCbCrAToARGB(aData.mYChannel, aData.mCbChannel, aData.mCrChannel,
+                        aData.mAlphaChannel, aData.mYStride, aData.mCbCrStride,
+                        aDestBuffer, aStride, aData.mPicSize.width,
+                        aData.mPicSize.height);
+    return;
+  }
+
+  ConvertYCbCrToRGB32(aData.mYChannel, aData.mCbChannel, aData.mCrChannel,
+                      aDestBuffer, aData.mPicX, aData.mPicY,
+                      aData.mPicSize.width, aData.mPicSize.height,
+                      aData.mYStride, aData.mCbCrStride, aStride, yuvtype,
+                      aData.mYUVColorSpace);
+
+  FillAlphaToRGBA(aData.mAlphaChannel, aData.mAlphaStride, aDestBuffer,
+                  aData.mPicSize.width, aData.mPicSize.height);
+
+#if MOZ_BIG_ENDIAN()
+  gfx::SwizzleData(aDestBuffer, aStride, gfx::SurfaceFormat::X8R8G8B8,
+                   aDestBuffer, aStride, gfx::SurfaceFormat::B8G8R8X8,
+                   aData.mPicSize);
+#endif
+}
+
 void
 ConvertYCbCrAToARGB(const uint8_t* aSrcY,
                     const uint8_t* aSrcU,
