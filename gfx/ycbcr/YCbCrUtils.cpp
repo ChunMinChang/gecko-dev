@@ -277,6 +277,12 @@ void FillAlphaToRGBA(uint8_t* aAlpha, int32_t aAlphaStride, uint8_t* aBuffer,
   }
 }
 
+void ARGBAttenuate(uint8_t* aSrcARGB, uint8_t* aDestARGB, int aWidth, int aHeight) {
+  for (int h = 0; h < aHeight; ++h) {
+    ARGBAttenuateRow(aSrcARGB, aDestARGB, aWidth);
+  }
+}
+
 void ConvertYCbCrAToARGB(const YCbCrAData& aData,
                          const SurfaceFormat& aDestFormat,
                          const IntSize& aDestSize, unsigned char* aDestBuffer,
@@ -313,6 +319,9 @@ void ConvertYCbCrAToARGB(const YCbCrAData& aData,
 
   FillAlphaToRGBA(aData.mAlphaChannel, aData.mAlphaStride, aDestBuffer,
                   aData.mPicSize.width, aData.mPicSize.height);
+
+  // Do preattenuate as what ConvertYCbCrAToARGB32 does
+  ARGBAttenuate(aDestBuffer, aDestBuffer, aData.mPicSize.width, aData.mPicSize.height);
 
 #if MOZ_BIG_ENDIAN()
   gfx::SwizzleData(aDestBuffer, aStride, gfx::SurfaceFormat::X8R8G8B8,

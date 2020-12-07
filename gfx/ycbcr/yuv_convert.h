@@ -118,6 +118,10 @@ void ConvertYCbCrAToARGB32(const uint8* yplane,
                            int uvstride,
                            int argbstride);
 
+void ARGBAttenuateRow(const uint8_t* src_argb,
+                      uint8_t* dst_argb,
+                      int width);
+
 } // namespace gfx
 } // namespace mozilla
 

@@ -582,5 +582,11 @@ void ConvertYCbCrAToARGB32(const uint8* y_buf,
   MOZ_ASSERT(!err);
 }
 
+void ARGBAttenuateRow(const uint8_t* src_argb,
+                      uint8_t* dst_argb,
+                      int width) {
+  libyuv::ARGBAttenuateRow_C(src_argb, dst_argb, width);
+}
+
 } // namespace gfx
 } // namespace mozilla
