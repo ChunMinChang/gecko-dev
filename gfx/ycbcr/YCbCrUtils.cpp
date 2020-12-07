@@ -92,11 +92,11 @@ ConvertYCbCr16to8Line(uint8_t* aDst,
 }
 
 void
-ConvertYCbCrToRGB(const layers::PlanarYCbCrData& aData,
-                  const SurfaceFormat& aDestFormat,
-                  const IntSize& aDestSize,
-                  unsigned char* aDestBuffer,
-                  int32_t aStride)
+ConvertYCbCrToRGBInternal(const layers::PlanarYCbCrData& aData,
+                          const SurfaceFormat& aDestFormat,
+                          const IntSize& aDestSize,
+                          unsigned char* aDestBuffer,
+                          int32_t aStride)
 {
   // ConvertYCbCrToRGB et al. assume the chroma planes are rounded up if the
   // luma plane is odd sized. Monochrome images have 0-sized CbCr planes
@@ -247,6 +247,14 @@ ConvertYCbCrToRGB(const layers::PlanarYCbCrData& aData,
                           yuvtype,
                           srcData.mYUVColorSpace);
   }
+}
+
+void ConvertYCbCrToRGB(const layers::PlanarYCbCrData& aData,
+                       const SurfaceFormat& aDestFormat,
+                       const IntSize& aDestSize, unsigned char* aDestBuffer,
+                       int32_t aStride) {
+  ConvertYCbCrToRGBInternal(aData, aDestFormat, aDestSize, aDestBuffer,
+                            aStride);
 #if MOZ_BIG_ENDIAN()
   // libyuv makes endian-correct result, which needs to be swapped to BGRX
   if (aDestFormat != SurfaceFormat::R5G6B5_UINT16)
@@ -311,11 +319,9 @@ void ConvertYCbCrAToARGB(const YCbCrAData& aData,
     return;
   }
 
-  ConvertYCbCrToRGB32(aData.mYChannel, aData.mCbChannel, aData.mCrChannel,
-                      aDestBuffer, aData.mPicX, aData.mPicY,
-                      aData.mPicSize.width, aData.mPicSize.height,
-                      aData.mYStride, aData.mCbCrStride, aStride, yuvtype,
-                      aData.mYUVColorSpace);
+  // TODO: This works with 8 bits YCbCr only
+  ConvertYCbCrToRGBInternal(aData, aDestFormat, aDestSize, aDestBuffer,
+                            aStride);
 
   FillAlphaToRGBA(aData.mAlphaChannel, aData.mAlphaStride, aDestBuffer,
                   aData.mPicSize.width, aData.mPicSize.height);
