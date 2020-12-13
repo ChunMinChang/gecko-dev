@@ -663,6 +663,17 @@ struct PlanarYCbCrData {
   }
 };
 
+// This type is currently only used for AVIF and therefore makes some
+// AVIF-specific assumptions (e.g., Alpha's stride is equal to mYStride)
+struct PlanarYCbCrAData : PlanarYCbCrData {
+  uint8_t* mAlphaChannel = nullptr;
+  gfx::IntSize mAlphaSize = gfx::IntSize(0, 0);
+  gfx::ColorDepth mAlphaColorDepth = gfx::ColorDepth::UNKNOWN;
+  bool mPremultipliedAlpha = false;
+
+  bool hasAlpha() { return mAlphaChannel; }
+};
+
 /****** Image subtypes for the different formats ******/
 
 /**
