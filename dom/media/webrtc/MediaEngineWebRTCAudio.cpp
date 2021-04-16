@@ -1273,6 +1273,11 @@ nsresult AudioInputTrack::OpenAudioInput(CubebUtils::AudioDeviceID aId,
   MOZ_ASSERT(GraphImpl());
   MOZ_ASSERT(!mInputListener);
   mInputListener = aListener;
+  ProcessedMediaTrack* input = GraphImpl()->GetDeviceTrack(aId);
+  MOZ_ASSERT(input);
+  printf_stderr("Device %p -> Track %p\n", aId, input);
+  mPort = this->AllocateInputPort(input);
+  mDeviceId = aId;
   return GraphImpl()->OpenAudioInput(aId, aListener);
 }
 
