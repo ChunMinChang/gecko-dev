@@ -102,6 +102,10 @@ class NativeInputTrack : public ProcessedMediaTrack {
 
   // Graph Thread APIs, for ProcessedMediaTrack
   void DestroyImpl() override;
+  // TODO: ProcessInput is ever be called since NativeInputTrack is not added
+  //       to mGraph->mTracks. Consider adding it but ensuring it's called
+  //       before AudioInputTrack::ProcessInput? Or move AudioInputTrack out of
+  //       mGraph->mTracks? Or just leave it as it is?
   void ProcessInput(GraphTime aFrom, GraphTime aTo, uint32_t aFlags) override;
   uint32_t NumberOfChannels() const override;
 

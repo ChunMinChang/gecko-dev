@@ -37,6 +37,7 @@
 #include "Tracing.h"
 #include "UnderrunHandler.h"
 #include "mozilla/CycleCollectedJSRuntime.h"
+#include "MediaEngineWebRTCAudio.h"
 
 #include "webaudio/blink/DenormalDisabler.h"
 #include "webaudio/blink/HRTFDatabaseLoader.h"
@@ -123,10 +124,13 @@ void NativeInputTrack::NotifyOutputData(MediaTrackGraphImpl* aGraph,
   MOZ_ASSERT(aGraph == mGraph, "Receive output data from another graph");
   MOZ_ASSERT(mDataHolder);
   mDataHolder->RefreshOutputData(aBuffer, aFrames, aChannels);
-  for (auto& listener : mDataUsers) {
-    listener->NotifyOutputData(aGraph, mDataHolder->mOutputData.mBuffer.get(),
-                               mDataHolder->mOutputData.mFrames, aRate,
-                               mDataHolder->mOutputData.mChannels);
+  for (const MediaInputPort* port : mConsumers) {
+    MOZ_ASSERT(port && port->GetDestination());
+    AudioInputTrack* track = port->GetDestination()->AsAudioInputTrack();
+    MOZ_ASSERT(track);
+    track->NotifyOutputData(aGraph, mDataHolder->mOutputData.mBuffer.get(),
+                            mDataHolder->mOutputData.mFrames, aRate,
+                            mDataHolder->mOutputData.mChannels);
   }
 }
 
@@ -136,8 +140,11 @@ void NativeInputTrack::NotifyInputStopped(MediaTrackGraphImpl* aGraph) {
              "Receive input stopped signal from another graph");
   MOZ_ASSERT(mDataHolder);
   mDataHolder->Clear(AudioDataBuffers::Scope::Input);
-  for (auto& listener : mDataUsers) {
-    listener->NotifyInputStopped(aGraph);
+  for (const MediaInputPort* port : mConsumers) {
+    MOZ_ASSERT(port && port->GetDestination());
+    AudioInputTrack* track = port->GetDestination()->AsAudioInputTrack();
+    MOZ_ASSERT(track);
+    track->NotifyInputStopped(aGraph);
   }
 }
 
@@ -150,11 +157,13 @@ void NativeInputTrack::NotifyInputData(MediaTrackGraphImpl* aGraph,
   MOZ_ASSERT(aGraph == mGraph, "Receive input data from another graph");
   MOZ_ASSERT(mDataHolder);
   mDataHolder->RefreshInputData(aBuffer, aFrames, aChannels);
-  for (auto& listener : mDataUsers) {
-    listener->NotifyInputData(aGraph, mDataHolder->mInputData.mBuffer.get(),
-                              mDataHolder->mInputData.mFrames, aRate,
-                              mDataHolder->mInputData.mChannels,
-                              aAlreadyBuffered);
+  for (const MediaInputPort* port : mConsumers) {
+    MOZ_ASSERT(port && port->GetDestination());
+    AudioInputTrack* track = port->GetDestination()->AsAudioInputTrack();
+    MOZ_ASSERT(track);
+    track->NotifyInputData(aGraph, mDataHolder->mInputData.mBuffer.get(),
+                           mDataHolder->mInputData.mFrames, aRate,
+                           mDataHolder->mInputData.mChannels, aAlreadyBuffered);
   }
 }
 

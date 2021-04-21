@@ -295,6 +295,30 @@ class AudioInputTrack : public ProcessedMediaTrack {
     return mInputProcessing->GetRequestedInputChannelCount();
   }
 
+  void NotifyOutputData(MediaTrackGraphImpl* aGraph, AudioDataValue* aBuffer,
+                        size_t aFrames, TrackRate aRate, uint32_t aChannels) {
+    MOZ_ASSERT(mInputProcessing);
+    MOZ_ASSERT(mGraph == aGraph);
+    mInputProcessing->NotifyOutputData(aGraph, aBuffer, aFrames, aRate,
+                                       aChannels);
+  }
+
+  void NotifyInputData(MediaTrackGraphImpl* aGraph,
+                       const AudioDataValue* aBuffer, size_t aFrames,
+                       TrackRate aRate, uint32_t aChannels,
+                       uint32_t aAlreadyBuffered) {
+    MOZ_ASSERT(mInputProcessing);
+    MOZ_ASSERT(mGraph == aGraph);
+    mInputProcessing->NotifyInputData(aGraph, aBuffer, aFrames, aRate,
+                                      aChannels, aAlreadyBuffered);
+  }
+
+  void NotifyInputStopped(MediaTrackGraphImpl* aGraph) {
+    MOZ_ASSERT(mInputProcessing);
+    MOZ_ASSERT(mGraph == aGraph);
+    mInputProcessing->NotifyInputStopped(aGraph);
+  }
+
   // Any thread
   AudioInputTrack* AsAudioInputTrack() override { return this; }
 
