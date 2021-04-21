@@ -319,6 +319,12 @@ class AudioInputTrack : public ProcessedMediaTrack {
     mInputProcessing->NotifyInputStopped(aGraph);
   }
 
+  void DeviceChanged(MediaTrackGraphImpl* aGraph) {
+    MOZ_ASSERT(mInputProcessing);
+    MOZ_ASSERT(mGraph == aGraph);
+    mInputProcessing->DeviceChanged(aGraph);
+  }
+
   // Any thread
   AudioInputTrack* AsAudioInputTrack() override { return this; }
 

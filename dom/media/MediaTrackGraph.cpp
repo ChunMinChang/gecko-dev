@@ -174,8 +174,11 @@ void NativeInputTrack::DeviceChanged(MediaTrackGraphImpl* aGraph) {
   MOZ_ASSERT(mDataHolder);
   mDataHolder->Clear(static_cast<AudioDataBuffers::Scope>(
       AudioDataBuffers::Scope::Input | AudioDataBuffers::Scope::Output));
-  for (auto& listener : mDataUsers) {
-    listener->DeviceChanged(aGraph);
+  for (const MediaInputPort* port : mConsumers) {
+    MOZ_ASSERT(port && port->GetDestination());
+    AudioInputTrack* track = port->GetDestination()->AsAudioInputTrack();
+    MOZ_ASSERT(track);
+    track->DeviceChanged(aGraph);
   }
 }
 
@@ -754,6 +757,8 @@ void MediaTrackGraphImpl::OpenAudioInputImpl(CubebUtils::AudioDeviceID aID,
 
   // Only allow one device per MTG (hence, per document), but allow opening a
   // device multiple times
+  nsTArray<MediaInputPort*>& consumers = track->mConsumers;
+  // TODO: replace listeners by consumers
   nsTArray<RefPtr<AudioDataListener>>& listeners = track->mDataUsers;
   if (listeners.IsEmpty() && mDeviceTrackMap.Count() > 1) {
     // We don't support opening multiple input device in a graph for now.
