@@ -1053,9 +1053,9 @@ class MediaTrackGraph {
   void ForceShutDown();
 
   virtual nsresult OpenAudioInput(CubebUtils::AudioDeviceID aID,
-                                  AudioDataListener* aListener) = 0;
+                                  ProcessedMediaTrack* aTrack) = 0;
   virtual void CloseAudioInput(CubebUtils::AudioDeviceID aID,
-                               AudioDataListener* aListener) = 0;
+                               ProcessedMediaTrack* aTrack) = 0;
 
   // Control API.
   /**

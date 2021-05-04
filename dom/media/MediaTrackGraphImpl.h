@@ -120,10 +120,10 @@ class NativeInputTrack : public ProcessedMediaTrack {
   // Any thread
   NativeInputTrack* AsNativeInputTrack() override { return this; }
 
- public:
+  //  public:
   // TODO: mConsumers -> GetDestination() instead
   // Only accessed on the graph thread.
-  nsTArray<RefPtr<AudioDataListener>> mDataUsers;
+  // nsTArray<RefPtr<AudioDataListener>> mDataUsers;
 
  private:
   // Only accessed on the graph thread.
@@ -511,30 +511,27 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
   /* Called on the graph thread */
   void DestroyNonNativeDeviceTrackImpl(CubebUtils::AudioDeviceID aID);
 
-  // TODO: Replace AudioDataListener* to ProcessedMediaTrack* for
-  //       {Open, Close}AudioInput* so we are able to remove
-  //       NativeInputTrack.mDataUsers
   /* Runs off a message on the graph thread when something requests audio from
    * an input audio device of ID aID, and delivers the input audio frames to
    * aListener. */
   void OpenAudioInputImpl(CubebUtils::AudioDeviceID aID,
-                          AudioDataListener* aListener,
+                          ProcessedMediaTrack* aTrack,
                           NativeInputTrack* aInputTrack);
   /* Called on the main thread when something requests audio from an input
    * audio device aID. */
   virtual nsresult OpenAudioInput(CubebUtils::AudioDeviceID aID,
-                                  AudioDataListener* aListener) override;
+                                  ProcessedMediaTrack* aTrack) override;
 
   /* Runs off a message on the graph when input audio from aID is not needed
    * anymore, for a particular track. It can be that other tracks still need
    * audio from this audio input device. */
   void CloseAudioInputImpl(CubebUtils::AudioDeviceID aID,
-                           AudioDataListener* aListener);
+                           ProcessedMediaTrack* aTrack);
   /* Called on the main thread when input audio from aID is not needed
    * anymore, for a particular track. It can be that other tracks still need
    * audio from this audio input device. */
   virtual void CloseAudioInput(CubebUtils::AudioDeviceID aID,
-                               AudioDataListener* aListener) override;
+                               ProcessedMediaTrack* aTrack) override;
 
   /* Add or remove an audio output for this track. All tracks that have an
    * audio output are mixed and written to a single audio output stream. */

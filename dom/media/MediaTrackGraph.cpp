@@ -947,7 +947,7 @@ void MediaTrackGraphImpl::DestroyNonNativeDeviceTrackImpl(
 }
 
 void MediaTrackGraphImpl::OpenAudioInputImpl(CubebUtils::AudioDeviceID aID,
-                                             AudioDataListener* aListener,
+                                             ProcessedMediaTrack* aTrack,
                                              NativeInputTrack* aInputTrack) {
   MOZ_ASSERT(OnGraphThread());
 
@@ -963,9 +963,24 @@ void MediaTrackGraphImpl::OpenAudioInputImpl(CubebUtils::AudioDeviceID aID,
   MOZ_ASSERT(track);
   track->InitDataHolderIfNeeded();
 
-  nsTArray<RefPtr<AudioDataListener>>& listeners = track->mDataUsers;
-  MOZ_ASSERT(!listeners.Contains(aListener), "Don't add a listener twice.");
-  listeners.AppendElement(aListener);
+  // nsTArray<RefPtr<AudioDataListener>>& listeners = track->mDataUsers;
+  // MOZ_ASSERT(!listeners.Contains(aListener), "Don't add a listener twice.");
+  // listeners.AppendElement(aListener);
+
+  AudioInputTrack* audioTrack = aTrack->AsAudioInputTrack();
+  MOZ_ASSERT(audioTrack);
+  bool wasPresent = false;
+  for (const MediaInputPort* consumer : track->mConsumers) {
+    MOZ_ASSERT(consumer);
+    MOZ_ASSERT(consumer->GetDestination());
+    AudioInputTrack* t = consumer->GetDestination()->AsAudioInputTrack();
+    MOZ_ASSERT(t);
+    if (audioTrack == t) {
+      wasPresent = true;
+      break;
+    }
+  }
+  MOZ_ASSERT(wasPresent);
 
   if (track->mConsumers.Length() == 1) {  // first open for this device
     mInputDeviceID = aID;
@@ -982,23 +997,25 @@ void MediaTrackGraphImpl::OpenAudioInputImpl(CubebUtils::AudioDeviceID aID,
 }
 
 nsresult MediaTrackGraphImpl::OpenAudioInput(CubebUtils::AudioDeviceID aID,
-                                             AudioDataListener* aListener) {
+                                             ProcessedMediaTrack* aTrack) {
   MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(aTrack);
+
   class Message : public ControlMessage {
    public:
     Message(MediaTrackGraphImpl* aGraph, CubebUtils::AudioDeviceID aID,
-            AudioDataListener* aListener, NativeInputTrack* aInputTrack)
+            ProcessedMediaTrack* aTrack, NativeInputTrack* aInputTrack)
         : ControlMessage(nullptr),
           mGraph(aGraph),
           mID(aID),
-          mListener(aListener),
+          mProcessedTrack(aTrack),
           mInputTrack(aInputTrack) {}
     void Run() override {
-      mGraph->OpenAudioInputImpl(mID, mListener, mInputTrack.get());
+      mGraph->OpenAudioInputImpl(mID, mProcessedTrack.get(), mInputTrack.get());
     }
     MediaTrackGraphImpl* mGraph;
     CubebUtils::AudioDeviceID mID;
-    RefPtr<AudioDataListener> mListener;
+    RefPtr<ProcessedMediaTrack> mProcessedTrack;
     RefPtr<NativeInputTrack> mInputTrack;
   };
 
@@ -1008,13 +1025,12 @@ nsresult MediaTrackGraphImpl::OpenAudioInput(CubebUtils::AudioDeviceID aID,
 
   // XXX Check not destroyed!
   this->AppendMessage(
-      MakeUnique<Message>(this, aID, aListener, result.Data().get()));
+      MakeUnique<Message>(this, aID, aTrack, result.Data().get()));
   return NS_OK;
 }
 
-
-void MediaTrackGraphImpl::CloseAudioInputImpl(
-    CubebUtils::AudioDeviceID aID, AudioDataListener* aListener) {
+void MediaTrackGraphImpl::CloseAudioInputImpl(CubebUtils::AudioDeviceID aID,
+                                              ProcessedMediaTrack* aTrack) {
   MOZ_ASSERT(OnGraphThread());
 
   auto result = mDeviceTrackMap.Lookup(aID);
@@ -1024,16 +1040,38 @@ void MediaTrackGraphImpl::CloseAudioInputImpl(
   }
 
   NativeInputTrack* track = result.Data();
-  nsTArray<RefPtr<AudioDataListener>>& listeners = track->mDataUsers;
-  bool wasPresent = listeners.RemoveElement(aListener);
-  MOZ_ASSERT(wasPresent);
+  // nsTArray<RefPtr<AudioDataListener>>& listeners = track->mDataUsers;
+  // bool wasPresent = listeners.RemoveElement(aListener);
+  // MOZ_ASSERT(wasPresent);
 
-  if (wasPresent) {
-    aListener->NotifyInputStopped(this);
+  // if (wasPresent) {
+  //   aListener->NotifyInputStopped(this);
+  // }
+
+  // // Breaks the cycle between the MTG and the listener.
+  // aListener->Disconnect(this);
+
+  AudioInputTrack* audioTrack = aTrack->AsAudioInputTrack();
+  MOZ_ASSERT(audioTrack);
+  bool wasPresent = false;
+  for (const MediaInputPort* consumer : track->mConsumers) {
+    MOZ_ASSERT(consumer);
+    MOZ_ASSERT(consumer->GetDestination());
+    AudioInputTrack* t = consumer->GetDestination()->AsAudioInputTrack();
+    MOZ_ASSERT(t);
+    if (audioTrack == t) {
+      wasPresent = true;
+      break;
+    }
   }
-
-  // Breaks the cycle between the MTG and the listener.
-  aListener->Disconnect(this);
+  MOZ_ASSERT(wasPresent);
+  // TODO: Call NotifyInputStopped anyway, just like Disconnect?
+  if (wasPresent) {
+    audioTrack->NotifyInputStopped(this);
+  }
+  // Breaks the cycle between the MTG and the AudioInputTrack's listener.
+  // TODO: Consider remove Disconnect? it does nothing actually.
+  audioTrack->Disconnect(this);
 
   if (!track->mConsumers.IsEmpty()) {
     // There is still a consumer for this audio input device
@@ -1103,22 +1141,24 @@ void MediaTrackGraphImpl::UnregisterAudioOutput(MediaTrack* aTrack,
 }
 
 void MediaTrackGraphImpl::CloseAudioInput(CubebUtils::AudioDeviceID aID,
-                                          AudioDataListener* aListener) {
+                                          ProcessedMediaTrack* aTrack) {
   MOZ_ASSERT(NS_IsMainThread());
   class Message : public ControlMessage {
    public:
     Message(MediaTrackGraphImpl* aGraph, CubebUtils::AudioDeviceID aID,
-            AudioDataListener* aListener)
+            ProcessedMediaTrack* aTrack)
         : ControlMessage(nullptr),
           mGraph(aGraph),
           mID(aID),
-          mListener(aListener) {}
-    void Run() override { mGraph->CloseAudioInputImpl(mID, mListener); }
+          mProcessedTrack(aTrack) {}
+    void Run() override {
+      mGraph->CloseAudioInputImpl(mID, mProcessedTrack.get());
+    }
     MediaTrackGraphImpl* mGraph;
     CubebUtils::AudioDeviceID mID;
-    RefPtr<AudioDataListener> mListener;
+    RefPtr<ProcessedMediaTrack> mProcessedTrack;
   };
-  this->AppendMessage(MakeUnique<Message>(this, aID, aListener));
+  this->AppendMessage(MakeUnique<Message>(this, aID, aTrack));
 }
 
 // All AudioInput listeners get the same speaker data (at least for now).

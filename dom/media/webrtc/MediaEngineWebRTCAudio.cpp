@@ -1350,7 +1350,7 @@ nsresult AudioInputTrack::OpenAudioInput(CubebUtils::AudioDeviceID aId,
   LOG("Open device %p (InputTrack=%p) for Mic source %p ", aId, input, this);
   mPort = AllocateInputPort(input);
   mDeviceId.emplace(aId);
-  return GraphImpl()->OpenAudioInput(aId, aListener);
+  return GraphImpl()->OpenAudioInput(aId, this);
 }
 
 void AudioInputTrack::CloseAudioInput() {
@@ -1364,7 +1364,7 @@ void AudioInputTrack::CloseAudioInput() {
   LOG("Close device %p (InputTrack=%p) for Mic source %p ", mDeviceId.value(),
       mPort->GetSource(), this);
   mPort->Destroy();
-  GraphImpl()->CloseAudioInput(mDeviceId.extract(), mInputListener);
+  GraphImpl()->CloseAudioInput(mDeviceId.extract(), this);
   mInputListener = nullptr;
 }
 
