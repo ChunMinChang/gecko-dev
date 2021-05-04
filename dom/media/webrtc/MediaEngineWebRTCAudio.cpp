@@ -1259,6 +1259,79 @@ void AudioInputTrack::ProcessInput(GraphTime aFrom, GraphTime aTo,
   }
 }
 
+void AudioInputTrack::NotifyOutputData(MediaTrackGraphImpl* aGraph,
+                                       AudioDataValue* aBuffer, size_t aFrames,
+                                       TrackRate aRate, uint32_t aChannels) {
+  MOZ_ASSERT(aGraph == mGraph);
+  MOZ_ASSERT(mGraph->OnGraphThread());
+  MOZ_ASSERT(mInputProcessing);
+  // TODO: Considering getting input data from GetSource() instead?
+  MOZ_ASSERT(mInputs.Length() == 1);
+  MOZ_ASSERT(mInputs[0]->GetSource());
+  MOZ_ASSERT(mInputs[0]->GetSource()->AsNativeInputTrack());
+
+  mInputProcessing->NotifyOutputData(aGraph, aBuffer, aFrames, aRate,
+                                     aChannels);
+}
+
+void AudioInputTrack::NotifyInputStopped(MediaTrackGraphImpl* aGraph) {
+  MOZ_ASSERT(aGraph == mGraph);
+  MOZ_ASSERT(mGraph->OnGraphThread());
+  MOZ_ASSERT(mInputProcessing);
+
+  mInputProcessing->NotifyInputStopped(aGraph);
+}
+
+void AudioInputTrack::NotifyInputData(MediaTrackGraphImpl* aGraph,
+                                      const AudioDataValue* aBuffer,
+                                      size_t aFrames, TrackRate aRate,
+                                      uint32_t aChannels,
+                                      uint32_t aAlreadyBuffered) {
+  MOZ_ASSERT(aGraph == mGraph);
+  MOZ_ASSERT(mGraph->OnGraphThread());
+  MOZ_ASSERT(mInputProcessing);
+  // TODO: Considering getting input data from GetSource() instead?
+  MOZ_ASSERT(mInputs.Length() == 1);
+  MOZ_ASSERT(mInputs[0]->GetSource());
+  MOZ_ASSERT(mInputs[0]->GetSource()->AsNativeInputTrack());
+
+  mInputProcessing->NotifyInputData(aGraph, aBuffer, aFrames, aRate, aChannels,
+                                    aAlreadyBuffered);
+}
+
+void AudioInputTrack::DeviceChanged(MediaTrackGraphImpl* aGraph) {
+  MOZ_ASSERT(aGraph == mGraph);
+  MOZ_ASSERT(mGraph->OnGraphThread());
+  MOZ_ASSERT(mInputProcessing);
+
+  mInputProcessing->DeviceChanged(aGraph);
+}
+
+void AudioInputTrack::Disconnect(MediaTrackGraphImpl* aGraph) {
+  MOZ_ASSERT(aGraph == mGraph);
+  MOZ_ASSERT(mGraph->OnGraphThread());
+  MOZ_ASSERT(mInputProcessing);
+
+  mInputProcessing->Disconnect(aGraph);
+}
+
+uint32_t AudioInputTrack::RequestedInputChannelCount(
+    MediaTrackGraphImpl* aGraph) {
+  MOZ_ASSERT(aGraph == mGraph);
+  MOZ_ASSERT(mGraph->OnGraphThread());
+  MOZ_ASSERT(mInputProcessing);
+
+  return mInputProcessing->RequestedInputChannelCount(aGraph);
+}
+
+bool AudioInputTrack::IsVoiceInput(MediaTrackGraphImpl* aGraph) {
+  MOZ_ASSERT(aGraph == mGraph);
+  MOZ_ASSERT(mGraph->OnGraphThread());
+  MOZ_ASSERT(mInputProcessing);
+
+  return mInputProcessing->IsVoiceInput(aGraph);
+}
+
 void AudioInputTrack::SetInputProcessingImpl(
     RefPtr<AudioInputProcessing> aInputProcessing) {
   MOZ_ASSERT(GraphImpl()->OnGraphThread());

@@ -104,7 +104,7 @@ class NativeInputTrack : public ProcessedMediaTrack {
   void ProcessInput(GraphTime aFrom, GraphTime aTo, uint32_t aFlags) override;
   uint32_t NumberOfChannels() const override;
 
-  // Graph thread APIs: Redirect calls from GraphDriver to mDataUsers
+  // Graph thread APIs: Redirect calls from GraphDriver to AudioInputTrack
   void NotifyOutputData(MediaTrackGraphImpl* aGraph, AudioDataValue* aBuffer,
                         size_t aFrames, TrackRate aRate, uint32_t aChannels);
   void NotifyInputStopped(MediaTrackGraphImpl* aGraph);
@@ -511,6 +511,9 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
   /* Called on the graph thread */
   void DestroyNonNativeDeviceTrackImpl(CubebUtils::AudioDeviceID aID);
 
+  // TODO: Replace AudioDataListener* to ProcessedMediaTrack* for
+  //       {Open, Close}AudioInput* so we are able to remove
+  //       NativeInputTrack.mDataUsers
   /* Runs off a message on the graph thread when something requests audio from
    * an input audio device of ID aID, and delivers the input audio frames to
    * aListener. */
@@ -617,64 +620,9 @@ class MediaTrackGraphImpl : public MediaTrackGraph,
    * channel counts requested by the listeners. The max channel count is
    * delivered to the listeners themselves, and they take care of downmixing.
    */
-  uint32_t AudioInputChannelCount() {
-    MOZ_ASSERT(OnGraphThreadOrNotRunning());
+  uint32_t AudioInputChannelCount();
 
-#ifdef ANDROID
-    if (!mDeviceTrackMap.Contains(mInputDeviceID)) {
-      return 0;
-    }
-#else
-    if (!mInputDeviceID) {
-      bool noDevice = mDeviceTrackMap.Count() == 0;
-      if (!noDevice) {
-        MOZ_ASSERT(mInputDeviceBeingDestroyed.isSome());
-        auto result =
-            mDeviceTrackMap.Lookup(mInputDeviceBeingDestroyed.value());
-        noDevice = result && result.Data()->mConsumers.IsEmpty();
-      }
-      MOZ_ASSERT(noDevice,
-                 "If running on a platform other than android,"
-                 "an explicit device id should be present");
-      return 0;
-    }
-#endif
-    uint32_t maxInputChannels = 0;
-    // When/if we decide to support multiple input device per graph, this needs
-    // loop over them.
-    auto result = mDeviceTrackMap.Lookup(mInputDeviceID);
-    MOZ_ASSERT(result);
-    if (!result) {
-      return maxInputChannels;
-    }
-    for (const auto& listener : result.Data()->mDataUsers) {
-      maxInputChannels = std::max(maxInputChannels,
-                                  listener->RequestedInputChannelCount(this));
-    }
-    return maxInputChannels;
-  }
-
-  AudioInputType AudioInputDevicePreference() {
-    MOZ_ASSERT(OnGraphThreadOrNotRunning());
-
-    auto result = mDeviceTrackMap.Lookup(mInputDeviceID);
-    if (!result) {
-      return AudioInputType::Unknown;
-    }
-    bool voiceInput = false;
-    // When/if we decide to support multiple input device per graph, this needs
-    // loop over them.
-
-    // If at least one track is considered to be voice,
-    // XXX This could use short-circuit evaluation resp. std::any_of.
-    for (const auto& listener : result.Data()->mDataUsers) {
-      voiceInput |= listener->IsVoiceInput(this);
-    }
-    if (voiceInput) {
-      return AudioInputType::Voice;
-    }
-    return AudioInputType::Unknown;
-  }
+  AudioInputType AudioInputDevicePreference();
 
   CubebUtils::AudioDeviceID InputDeviceID() { return mInputDeviceID; }
 

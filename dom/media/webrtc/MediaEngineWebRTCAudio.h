@@ -296,6 +296,19 @@ class AudioInputTrack : public ProcessedMediaTrack {
     return mInputProcessing->GetRequestedInputChannelCount();
   }
 
+  // Graph Thread API: Relay to AudioInputProcessing
+  void NotifyOutputData(MediaTrackGraphImpl* aGraph, AudioDataValue* aBuffer,
+                        size_t aFrames, TrackRate aRate, uint32_t aChannels);
+  void NotifyInputStopped(MediaTrackGraphImpl* aGraph);
+  void NotifyInputData(MediaTrackGraphImpl* aGraph,
+                       const AudioDataValue* aBuffer, size_t aFrames,
+                       TrackRate aRate, uint32_t aChannels,
+                       uint32_t aAlreadyBuffered);
+  void DeviceChanged(MediaTrackGraphImpl* aGraph);
+  void Disconnect(MediaTrackGraphImpl* aGraph);
+  uint32_t RequestedInputChannelCount(MediaTrackGraphImpl* aGraph);
+  bool IsVoiceInput(MediaTrackGraphImpl* aGraph);
+
   // Any thread
   AudioInputTrack* AsAudioInputTrack() override { return this; }
 

@@ -21,6 +21,8 @@
 #include "AudioCaptureTrack.h"
 #include "AudioNodeTrack.h"
 #include "AudioNodeExternalInputTrack.h"
+// TODO: Consider move AudioInputTrack to its own .h/.cpp?
+#include "MediaEngineWebRTCAudio.h"
 #include "MediaTrackListener.h"
 #include "mozilla/dom/BaseAudioContextBinding.h"
 #include "mozilla/dom/WorkletThread.h"
@@ -130,11 +132,24 @@ void NativeInputTrack::NotifyOutputData(MediaTrackGraphImpl* aGraph,
   MOZ_ASSERT(aGraph == mGraph, "Receive output data from another graph");
   MOZ_ASSERT(mDataHolder);
   mDataHolder->RefreshOutputData(aBuffer, aFrames, aChannels);
-  for (auto& listener : mDataUsers) {
-    listener->NotifyOutputData(aGraph, mDataHolder->mOutputData.mBuffer.get(),
-                               mDataHolder->mOutputData.mFrames, aRate,
-                               mDataHolder->mOutputData.mChannels);
+
+  for (const MediaInputPort* consumer : mConsumers) {
+    MOZ_ASSERT(consumer);
+    MOZ_ASSERT(consumer->GetDestination());
+    AudioInputTrack* track = consumer->GetDestination()->AsAudioInputTrack();
+    MOZ_ASSERT(track);
+    track->NotifyOutputData(aGraph, mDataHolder->mOutputData.mBuffer.get(),
+                            mDataHolder->mOutputData.mFrames, aRate,
+                            mDataHolder->mOutputData.mChannels);
   }
+
+  // for (auto& listener : mDataUsers) {
+  //   listener->NotifyOutputData(aGraph,
+  //   mDataHolder->mOutputData.mBuffer.get(),
+  //                              mDataHolder->mOutputData.mFrames, aRate,
+  //                              mDataHolder->mOutputData.mChannels);
+  // }
+
   // TODO: Use AudioSegment to store audio-output data and feed it to
   // AudioInputTrack? (AudioInputProcessing::NotifyOutputData need to take
   // AudioSegment as input then)
@@ -146,9 +161,16 @@ void NativeInputTrack::NotifyInputStopped(MediaTrackGraphImpl* aGraph) {
              "Receive input stopped signal from another graph");
   MOZ_ASSERT(mDataHolder);
   mDataHolder->Clear(AudioDataBuffers::Scope::Input);
-  for (auto& listener : mDataUsers) {
-    listener->NotifyInputStopped(aGraph);
+  for (const MediaInputPort* consumer : mConsumers) {
+    MOZ_ASSERT(consumer);
+    MOZ_ASSERT(consumer->GetDestination());
+    AudioInputTrack* track = consumer->GetDestination()->AsAudioInputTrack();
+    MOZ_ASSERT(track);
+    track->NotifyInputStopped(aGraph);
   }
+  // for (auto& listener : mDataUsers) {
+  //   listener->NotifyInputStopped(aGraph);
+  // }
 }
 
 void NativeInputTrack::NotifyInputData(MediaTrackGraphImpl* aGraph,
@@ -161,12 +183,24 @@ void NativeInputTrack::NotifyInputData(MediaTrackGraphImpl* aGraph,
 
   MOZ_ASSERT(mDataHolder);
   mDataHolder->RefreshInputData(aBuffer, aFrames, aChannels);
-  for (auto& listener : mDataUsers) {
-    listener->NotifyInputData(aGraph, mDataHolder->mInputData.mBuffer.get(),
-                              mDataHolder->mInputData.mFrames, aRate,
-                              mDataHolder->mInputData.mChannels,
-                              aAlreadyBuffered);
+
+  for (const MediaInputPort* consumer : mConsumers) {
+    MOZ_ASSERT(consumer);
+    MOZ_ASSERT(consumer->GetDestination());
+    AudioInputTrack* track = consumer->GetDestination()->AsAudioInputTrack();
+    MOZ_ASSERT(track);
+    track->NotifyInputData(aGraph, mDataHolder->mInputData.mBuffer.get(),
+                           mDataHolder->mInputData.mFrames, aRate,
+                           mDataHolder->mInputData.mChannels, aAlreadyBuffered);
   }
+
+  // for (auto& listener : mDataUsers) {
+  //   listener->NotifyInputData(aGraph, mDataHolder->mInputData.mBuffer.get(),
+  //                             mDataHolder->mInputData.mFrames, aRate,
+  //                             mDataHolder->mInputData.mChannels,
+  //                             aAlreadyBuffered);
+  // }
+
   // TODO: Use AudioSegment to store audio-input data and feed it to
   // AudioInputTrack? Do something like AudioInputProcessing::InsertInGraph here
   // for mSegment and feed mSegment to AudioInputTrack?
@@ -181,9 +215,16 @@ void NativeInputTrack::DeviceChanged(MediaTrackGraphImpl* aGraph) {
   MOZ_ASSERT(mDataHolder);
   mDataHolder->Clear(static_cast<AudioDataBuffers::Scope>(
       AudioDataBuffers::Scope::Input | AudioDataBuffers::Scope::Output));
-  for (auto& listener : mDataUsers) {
-    listener->DeviceChanged(aGraph);
+  for (const MediaInputPort* consumer : mConsumers) {
+    MOZ_ASSERT(consumer);
+    MOZ_ASSERT(consumer->GetDestination());
+    AudioInputTrack* track = consumer->GetDestination()->AsAudioInputTrack();
+    MOZ_ASSERT(track);
+    track->DeviceChanged(aGraph);
   }
+  // for (auto& listener : mDataUsers) {
+  //   listener->DeviceChanged(aGraph);
+  // }
 }
 
 MediaTrackGraphImpl::~MediaTrackGraphImpl() {
@@ -925,7 +966,8 @@ void MediaTrackGraphImpl::OpenAudioInputImpl(CubebUtils::AudioDeviceID aID,
   nsTArray<RefPtr<AudioDataListener>>& listeners = track->mDataUsers;
   MOZ_ASSERT(!listeners.Contains(aListener), "Don't add a listener twice.");
   listeners.AppendElement(aListener);
-  if (listeners.Length() == 1) {  // first open for this device
+
+  if (track->mConsumers.Length() == 1) {  // first open for this device
     mInputDeviceID = aID;
     // Switch Drivers since we're adding input (to input-only or full-duplex)
     AudioCallbackDriver* driver = new AudioCallbackDriver(
@@ -993,7 +1035,7 @@ void MediaTrackGraphImpl::CloseAudioInputImpl(
   // Breaks the cycle between the MTG and the listener.
   aListener->Disconnect(this);
 
-  if (!listeners.IsEmpty()) {
+  if (!track->mConsumers.IsEmpty()) {
     // There is still a consumer for this audio input device
     return;
   }
@@ -1168,6 +1210,81 @@ void MediaTrackGraphImpl::DeviceChangedImpl() {
 void MediaTrackGraphImpl::SetMaxOutputChannelCount(uint32_t aMaxChannelCount) {
   MOZ_ASSERT(OnGraphThread());
   mMaxOutputChannelCount = aMaxChannelCount;
+}
+
+uint32_t MediaTrackGraphImpl::AudioInputChannelCount() {
+  MOZ_ASSERT(OnGraphThreadOrNotRunning());
+
+#ifdef ANDROID
+  if (!mDeviceTrackMap.Contains(mInputDeviceID)) {
+    return 0;
+  }
+#else
+  if (!mInputDeviceID) {
+    bool noDevice = mDeviceTrackMap.Count() == 0;
+    if (!noDevice) {
+      MOZ_ASSERT(mInputDeviceBeingDestroyed.isSome());
+      auto result = mDeviceTrackMap.Lookup(mInputDeviceBeingDestroyed.value());
+      noDevice = result && result.Data()->mConsumers.IsEmpty();
+    }
+    MOZ_ASSERT(noDevice,
+               "If running on a platform other than android,"
+               "an explicit device id should be present");
+    return 0;
+  }
+#endif
+  uint32_t maxInputChannels = 0;
+  // When/if we decide to support multiple input device per graph, this needs
+  // loop over them.
+  auto result = mDeviceTrackMap.Lookup(mInputDeviceID);
+  MOZ_ASSERT(result);
+  if (!result) {
+    return maxInputChannels;
+  }
+  for (const MediaInputPort* consumer : result.Data()->mConsumers) {
+    MOZ_ASSERT(consumer);
+    MOZ_ASSERT(consumer->GetDestination());
+    AudioInputTrack* track = consumer->GetDestination()->AsAudioInputTrack();
+    MOZ_ASSERT(track);
+
+    maxInputChannels =
+        std::max(maxInputChannels, track->RequestedInputChannelCount(this));
+  }
+  // for (const auto& listener : result.Data()->mDataUsers) {
+  //   maxInputChannels = std::max(maxInputChannels,
+  //                               listener->RequestedInputChannelCount(this));
+  // }
+  return maxInputChannels;
+}
+
+AudioInputType MediaTrackGraphImpl::AudioInputDevicePreference() {
+  MOZ_ASSERT(OnGraphThreadOrNotRunning());
+
+  auto result = mDeviceTrackMap.Lookup(mInputDeviceID);
+  if (!result) {
+    return AudioInputType::Unknown;
+  }
+  bool voiceInput = false;
+  // When/if we decide to support multiple input device per graph, this needs
+  // loop over them.
+
+  // If at least one track is considered to be voice,
+  // XXX This could use short-circuit evaluation resp. std::any_of.
+  for (const MediaInputPort* consumer : result.Data()->mConsumers) {
+    MOZ_ASSERT(consumer);
+    MOZ_ASSERT(consumer->GetDestination());
+    AudioInputTrack* track = consumer->GetDestination()->AsAudioInputTrack();
+    MOZ_ASSERT(track);
+
+    voiceInput |= track->IsVoiceInput(this);
+  }
+  // for (const auto& listener : result.Data()->mDataUsers) {
+  //   voiceInput |= listener->IsVoiceInput(this);
+  // }
+  if (voiceInput) {
+    return AudioInputType::Voice;
+  }
+  return AudioInputType::Unknown;
 }
 
 void MediaTrackGraphImpl::DeviceChanged() {
