@@ -245,6 +245,19 @@ struct AudioChunk {
     return static_cast<T*>(const_cast<void*>(mChannelData[aChannel]));
   }
 
+  // void Print() const {
+  //   printf_stderr("Duration (Frames): %ld\n", mDuration);
+  //   printf_stderr("Channels: %zu\n", mChannelData.Length());
+  //   for (uint32_t i = 0; i < mChannelData.Length(); ++i) {
+  //     printf_stderr("Channel[%d] @ %p:\n", i, mChannelData[i]);
+  //     uint8_t* start = (uint8_t*)(mChannelData[i]);
+  //     for (uint32_t j = 0 ; j < mDuration ; ++j) {
+  //       uint8_t* sample = start + j;
+  //       printf_stderr("\tframe[%d] = %x\n", j, *sample);
+  //     }
+  //   }
+  // }
+
   const PrincipalHandle& GetPrincipalHandle() const { return mPrincipalHandle; }
 
   TrackTime mDuration = 0;             // in frames within the buffer
@@ -376,6 +389,68 @@ class AudioSegment : public MediaSegmentBase<AudioSegment, AudioChunk> {
     }
     chunk->mBufferFormat = AUDIO_FORMAT_S16;
     chunk->mPrincipalHandle = aPrincipalHandle;
+  }
+  void CopyChunk(const AudioChunk& aChunk,
+                 const PrincipalHandle& aPrincipalHandle) {
+    MOZ_ASSERT(!aChunk.mChannelData.IsEmpty(), "Appending invalid data ?");
+
+    size_t frames = static_cast<size_t>(aChunk.GetDuration());
+    size_t channels = static_cast<size_t>(aChunk.mChannelData.Length());
+
+    if (aChunk.mBufferFormat == AUDIO_FORMAT_FLOAT32) {
+      CheckedInt<size_t> bufferSize(sizeof(float));
+      bufferSize *= frames;
+      bufferSize *= channels;
+      RefPtr<SharedBuffer> buffer = SharedBuffer::Create(bufferSize);
+
+      // aChunk.mChannelData[0] is the beginning of the audio data
+      memcpy(buffer->Data(), aChunk.mChannelData[0], bufferSize.value());
+
+      AutoTArray<const float*, 8> write_channels;
+      write_channels.SetLength(aChunk.mChannelData.Length());
+
+      float* samples = static_cast<float*>(buffer->Data());
+
+      size_t offset = 0;
+      for (size_t i = 0; i < channels; ++i) {
+        write_channels[i] = samples + offset;
+        offset += frames;
+      }
+
+      AppendFrames(buffer.forget(), write_channels, aChunk.GetDuration(),
+                   aPrincipalHandle);
+    } else if (aChunk.mBufferFormat == AUDIO_FORMAT_S16) {
+      CheckedInt<size_t> bufferSize(sizeof(int16_t));
+      bufferSize *= frames;
+      bufferSize *= channels;
+      RefPtr<SharedBuffer> buffer = SharedBuffer::Create(bufferSize);
+
+      // aChunk.mChannelData[0] is the beginning of the audio data
+      memcpy(buffer->Data(), aChunk.mChannelData[0], bufferSize.value());
+
+      AutoTArray<const int16_t*, 8> write_channels;
+      write_channels.SetLength(aChunk.mChannelData.Length());
+
+      int16_t* samples = static_cast<int16_t*>(buffer->Data());
+
+      size_t offset = 0;
+      for (size_t i = 0; i < channels; ++i) {
+        write_channels[i] = samples + offset;
+        offset += frames;
+      }
+
+      AppendFrames(buffer.forget(), write_channels, aChunk.GetDuration(),
+                   aPrincipalHandle);
+    } else {
+      MOZ_ASSERT_UNREACHABLE("Invalid buffer format!");
+    }
+  }
+  void CopyFrom(const AudioSegment* aSegment,
+                const PrincipalHandle& aPrincipalHandle) {
+    MOZ_ASSERT(aSegment);
+    for (const AudioChunk& c : aSegment->mChunks) {
+      CopyChunk(c, aPrincipalHandle);
+    }
   }
   // Consumes aChunk, and returns a pointer to the persistent copy of aChunk
   // in the segment.

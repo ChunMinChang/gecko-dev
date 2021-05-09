@@ -167,11 +167,40 @@ void NativeInputTrack::NotifyInputData(MediaTrackGraphImpl* aGraph,
                               mDataHolder->mInputData.mChannels,
                               aAlreadyBuffered);
   }
-  // TODO: Use AudioSegment to store audio-input data and feed it to
-  // AudioInputTrack? Do something like AudioInputProcessing::InsertInGraph here
-  // for mSegment and feed mSegment to AudioInputTrack?
-  // (AudioInputProcessing::NotifyInputData need to take AudioSegment as input
-  // then)
+
+  MOZ_ASSERT(aChannels >= 1 && aChannels <= 8, "Support up to 8 channels");
+
+  CheckedInt<size_t> bufferSize(sizeof(AudioDataValue));
+  bufferSize *= aFrames;
+  bufferSize *= aChannels;
+  RefPtr<SharedBuffer> buffer = SharedBuffer::Create(bufferSize);
+  AutoTArray<const AudioDataValue*, 8> channels;
+  if (aChannels == 1) {
+    PodCopy(static_cast<AudioDataValue*>(buffer->Data()), aBuffer, aFrames);
+    channels.AppendElement(static_cast<AudioDataValue*>(buffer->Data()));
+  } else {
+    channels.SetLength(aChannels);
+    AutoTArray<AudioDataValue*, 8> write_channels;
+    write_channels.SetLength(aChannels);
+    AudioDataValue* samples = static_cast<AudioDataValue*>(buffer->Data());
+
+    size_t offset = 0;
+    for (uint32_t i = 0; i < aChannels; ++i) {
+      channels[i] = write_channels[i] = samples + offset;
+      offset += aFrames;
+    }
+
+    DeinterleaveAndConvertBuffer(aBuffer, aFrames, aChannels,
+                                 write_channels.Elements());
+  }
+
+  LOG(LogLevel::Verbose,
+      ("NativeInputTrack %p Appending %zu frames of raw audio", this, aFrames));
+
+  MOZ_ASSERT(aChannels == channels.Length());
+  GetData<AudioSegment>()->Clear();
+  GetData<AudioSegment>()->AppendFrames(buffer.forget(), channels, aFrames,
+                                        PRINCIPAL_HANDLE_NONE);
 }
 
 void NativeInputTrack::DeviceChanged(MediaTrackGraphImpl* aGraph) {

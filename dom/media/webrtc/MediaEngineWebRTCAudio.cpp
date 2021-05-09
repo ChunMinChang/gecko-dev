@@ -403,6 +403,7 @@ void MediaEngineWebRTCMicrophoneSource::ApplySettings(
         if (track->IsDestroyed()) {
           return;
         }
+        passThrough = true;
 
         track->GraphImpl()->AppendMessage(MakeUnique<Message>(
             track, that->mInputProcessing, passThrough, prefs.mChannels));
@@ -1120,6 +1121,15 @@ void AudioInputProcessing::InsertInGraph(MediaTrackGraphImpl* aGraph,
   mSegment.AppendFrames(buffer.forget(), channels, aFrames, mPrincipal);
 }
 
+void AudioInputProcessing::Append(const AudioSegment* aSegment) {
+  if (mEnded || !mEnabled || !mLiveFramesAppended) {
+    return;
+  }
+
+  MOZ_ASSERT(aSegment);
+  mSegment.CopyFrom(aSegment, mPrincipal);
+}
+
 void AudioInputProcessing::NotifyInputStopped(MediaTrackGraphImpl* aGraph) {
   MOZ_ASSERT(aGraph->OnGraphThread());
   // This is called when an AudioCallbackDriver switch has happened for any
@@ -1156,7 +1166,9 @@ void AudioInputProcessing::NotifyInputData(MediaTrackGraphImpl* aGraph,
   // code. Otherwise, directly insert the mic data in the MTG, bypassing all
   // processing.
   if (PassThrough(aGraph)) {
-    InsertInGraph<AudioDataValue>(aGraph, aBuffer, aFrames, aChannels);
+    printf_stderr("\nAudioInputProcessing(%p) PassThrough -> Do nothing!\n",
+                  this);
+    // InsertInGraph<AudioDataValue>(aGraph, aBuffer, aFrames, aChannels);
   } else {
     PacketizeAndProcess(aGraph, aBuffer, aFrames, aRate, aChannels);
   }
@@ -1249,6 +1261,16 @@ void AudioInputTrack::DestroyImpl() {
 void AudioInputTrack::ProcessInput(GraphTime aFrom, GraphTime aTo,
                                    uint32_t aFlags) {
   TRACE_COMMENT("AudioInputTrack %p", this);
+
+  MOZ_ASSERT(mInputs.Length() == 1);
+  MOZ_ASSERT(mInputs[0]->GetSource());
+
+  if (mInputProcessing->PassThrough(GraphImpl())) {
+    printf_stderr("Copy AudioSegment from %p\n",
+                  mInputs[0]->GetSource()->GetData<AudioSegment>());
+    mInputProcessing->Append(mInputs[0]->GetSource()->GetData<AudioSegment>());
+  }
+
   bool ended = false;
   mInputProcessing->Pull(
       GraphImpl(), aFrom, aTo, TrackTimeToGraphTime(GetEnd()),

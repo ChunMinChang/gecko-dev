@@ -167,6 +167,8 @@ class AudioInputProcessing : public AudioDataListener {
 
   void Disconnect(MediaTrackGraphImpl* aGraph) override;
 
+  void Append(const AudioSegment* aSegment);
+
   template <typename T>
   void InsertInGraph(MediaTrackGraphImpl* aGraph, const T* aBuffer,
                      size_t aFrames, uint32_t aChannels);
