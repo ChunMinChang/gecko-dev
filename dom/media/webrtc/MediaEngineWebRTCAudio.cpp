@@ -1081,13 +1081,11 @@ void AudioInputProcessing::PacketizeAndProcess(MediaTrackGraphImpl* aGraph,
 }
 
 void AudioInputProcessing::ProcessInput(MediaTrackGraphImpl* aGraph,
-                                        const AudioDataValue* aBuffer,
-                                        size_t aFrames, TrackRate aRate,
-                                        uint32_t aChannels) {
+                                        const AudioSegment* aSegment) {
   MOZ_ASSERT(aGraph);
   MOZ_ASSERT(aGraph->OnGraphThread());
 
-  if (mEnded || !mEnabled || !mLiveFramesAppended || !mDataReady || !aBuffer) {
+  if (mEnded || !mEnabled || !mLiveFramesAppended || !mDataReady || !aSegment) {
     return;
   }
 
@@ -1095,14 +1093,52 @@ void AudioInputProcessing::ProcessInput(MediaTrackGraphImpl* aGraph,
   // code. Otherwise, directly insert the mic data in the MTG, bypassing all
   // processing.
   if (PassThrough(aGraph)) {
-    InsertInGraph<AudioDataValue>(aGraph, aBuffer, aFrames, aChannels);
+    Append(aGraph, aSegment);
   } else {
-    PacketizeAndProcess(aGraph, aBuffer, aFrames, aRate, aChannels);
+    Packetize(aGraph, aSegment);
   }
 
   // One NotifyInputData might have multiple following ProcessInput calls, but
   // we only process one input per NotifyInputData call.
   mDataReady = false;
+}
+
+void AudioInputProcessing::Append(MediaTrackGraphImpl* aGraph,
+                                  const AudioSegment* aSegment) {
+  MOZ_ASSERT(aGraph);
+  MOZ_ASSERT(aSegment);
+  MOZ_ASSERT(mEnabled && !mEnded && mLiveFramesAppended);
+  MOZ_ASSERT(PassThrough(aGraph));
+  mSegment.CopyFrom(aSegment, mPrincipal);
+}
+
+void AudioInputProcessing::Packetize(MediaTrackGraphImpl* aGraph,
+                                     const AudioSegment* aSegment) {
+  MOZ_ASSERT(aGraph);
+  MOZ_ASSERT(aSegment);
+  MOZ_ASSERT(mEnabled && !mEnded && mLiveFramesAppended);
+  MOZ_ASSERT(!PassThrough(aGraph));
+
+  UniquePtr<nsTArray<AudioSegment::InterleaveBuffer>> buffers =
+      aSegment->ToInterleaveBuffers();
+  MOZ_ASSERT(buffers, "Invalid data type!");
+  if (!buffers) {
+    return;
+  }
+
+  for (size_t i = 0; i < buffers->Length(); ++i) {
+    MOZ_ASSERT(buffers->ElementAt(i).format == AUDIO_FORMAT_FLOAT32 ||
+               buffers->ElementAt(i).format == AUDIO_FORMAT_S16);
+    MOZ_ASSERT(sizeof(AudioDataValue) ==
+               (buffers->ElementAt(i).format == AUDIO_FORMAT_FLOAT32
+                    ? sizeof(float)
+                    : sizeof(int16_t)));
+    PacketizeAndProcess(
+        aGraph,
+        reinterpret_cast<AudioDataValue*>(buffers->ElementAt(i).data.get()),
+        buffers->ElementAt(i).frames, aGraph->GraphRate(),
+        buffers->ElementAt(i).channels);
+  }
 }
 
 template <typename T>
@@ -1285,14 +1321,11 @@ void AudioInputTrack::ProcessInput(GraphTime aFrom, GraphTime aTo,
 
   // Push the input data from the connected NativeInputTrack to mInputProcessing
   if (source) {
-    Maybe<NativeInputTrack::BufferInfo> inputInfo =
-        source->GetInputBufferData();
-    if (inputInfo) {
-      MOZ_ASSERT(GraphImpl()->GraphRate() == mSampleRate);
-      mInputProcessing->ProcessInput(GraphImpl(), inputInfo->mBuffer,
-                                     inputInfo->mFrames, mSampleRate,
-                                     inputInfo->mChannels);
-    }
+    MOZ_ASSERT(source->GraphImpl() == GraphImpl());
+    MOZ_ASSERT(source->mSampleRate == mSampleRate);
+    MOZ_ASSERT(GraphImpl()->GraphRate() == mSampleRate);
+    mInputProcessing->ProcessInput(GraphImpl(),
+                                   source->GetData<AudioSegment>());
   }
 
   bool ended = false;

@@ -14,6 +14,7 @@
 #include "SharedBuffer.h"
 #include "WebAudioUtils.h"
 #include "nsAutoRef.h"
+#include "mozilla/UniquePtr.h"
 #ifdef MOZILLA_INTERNAL_API
 #  include "mozilla/TimeStamp.h"
 #endif
@@ -377,6 +378,68 @@ class AudioSegment : public MediaSegmentBase<AudioSegment, AudioChunk> {
     chunk->mBufferFormat = AUDIO_FORMAT_S16;
     chunk->mPrincipalHandle = aPrincipalHandle;
   }
+  void CopyChunk(const AudioChunk& aChunk,
+                 const PrincipalHandle& aPrincipalHandle) {
+    MOZ_ASSERT(!aChunk.mChannelData.IsEmpty(), "Appending invalid data ?");
+
+    size_t frames = static_cast<size_t>(aChunk.GetDuration());
+    size_t channels = static_cast<size_t>(aChunk.mChannelData.Length());
+
+    if (aChunk.mBufferFormat == AUDIO_FORMAT_FLOAT32) {
+      CheckedInt<size_t> bufferSize(sizeof(float));
+      bufferSize *= frames;
+      bufferSize *= channels;
+      RefPtr<SharedBuffer> buffer = SharedBuffer::Create(bufferSize);
+
+      // aChunk.mChannelData[0] is the beginning of the audio data
+      memcpy(buffer->Data(), aChunk.mChannelData[0], bufferSize.value());
+
+      AutoTArray<const float*, 8> write_channels;
+      write_channels.SetLength(aChunk.mChannelData.Length());
+
+      float* samples = static_cast<float*>(buffer->Data());
+
+      size_t offset = 0;
+      for (size_t i = 0; i < channels; ++i) {
+        write_channels[i] = samples + offset;
+        offset += frames;
+      }
+
+      AppendFrames(buffer.forget(), write_channels, aChunk.GetDuration(),
+                   aPrincipalHandle);
+    } else if (aChunk.mBufferFormat == AUDIO_FORMAT_S16) {
+      CheckedInt<size_t> bufferSize(sizeof(int16_t));
+      bufferSize *= frames;
+      bufferSize *= channels;
+      RefPtr<SharedBuffer> buffer = SharedBuffer::Create(bufferSize);
+
+      // aChunk.mChannelData[0] is the beginning of the audio data
+      memcpy(buffer->Data(), aChunk.mChannelData[0], bufferSize.value());
+
+      AutoTArray<const int16_t*, 8> write_channels;
+      write_channels.SetLength(aChunk.mChannelData.Length());
+
+      int16_t* samples = static_cast<int16_t*>(buffer->Data());
+
+      size_t offset = 0;
+      for (size_t i = 0; i < channels; ++i) {
+        write_channels[i] = samples + offset;
+        offset += frames;
+      }
+
+      AppendFrames(buffer.forget(), write_channels, aChunk.GetDuration(),
+                   aPrincipalHandle);
+    } else {
+      MOZ_ASSERT_UNREACHABLE("Invalid buffer format!");
+    }
+  }
+  void CopyFrom(const AudioSegment* aSegment,
+                const PrincipalHandle& aPrincipalHandle) {
+    MOZ_ASSERT(aSegment);
+    for (const AudioChunk& c : aSegment->mChunks) {
+      CopyChunk(c, aPrincipalHandle);
+    }
+  }
   // Consumes aChunk, and returns a pointer to the persistent copy of aChunk
   // in the segment.
   AudioChunk* AppendAndConsumeChunk(AudioChunk* aChunk) {
@@ -422,6 +485,83 @@ class AudioSegment : public MediaSegmentBase<AudioSegment, AudioChunk> {
 
   size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const override {
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
+  }
+
+  struct InterleaveBuffer {
+    UniquePtr<uint8_t[]> data;
+    size_t frames;
+    size_t channels;
+    AudioSampleFormat format;
+  };
+
+  UniquePtr<nsTArray<InterleaveBuffer>> ToInterleaveBuffers() const {
+    nsTArray<InterleaveBuffer> buffers;
+
+    AudioSampleFormat format = AUDIO_FORMAT_SILENCE;
+
+    for (const AudioChunk& c : mChunks) {
+      MOZ_ASSERT(c.mBufferFormat == AUDIO_FORMAT_FLOAT32 ||
+                 c.mBufferFormat == AUDIO_FORMAT_S16);
+      if (c.mBufferFormat != AUDIO_FORMAT_FLOAT32 &&
+          c.mBufferFormat != AUDIO_FORMAT_S16) {
+        return nullptr;
+      }
+
+      if (format == AUDIO_FORMAT_SILENCE) {
+        format = c.mBufferFormat;
+      } else {
+        MOZ_ASSERT(format == c.mBufferFormat);
+        if (format != c.mBufferFormat) {
+          return nullptr;
+        }
+      }
+
+      InterleaveBuffer buffer;
+      buffer.format = format;
+      buffer.frames = static_cast<size_t>(c.GetDuration());
+      buffer.channels = static_cast<size_t>(c.mChannelData.Length());
+
+      CheckedInt<size_t> bufferSize(
+          format == AUDIO_FORMAT_FLOAT32 ? sizeof(float) : sizeof(int16_t));
+      bufferSize *= buffer.frames;
+      bufferSize *= buffer.channels;
+
+      MOZ_ASSERT(bufferSize.isValid());
+      if (!bufferSize.isValid()) {
+        return nullptr;
+      }
+
+      buffer.data = mozilla::MakeUnique<uint8_t[]>(bufferSize.value());
+
+      if (format == AUDIO_FORMAT_FLOAT32) {
+        float* dest = reinterpret_cast<float*>(buffer.data.get());
+        size_t w = 0;
+        for (size_t f = 0; f < buffer.frames; ++f) {
+          for (size_t ch = 0; ch < buffer.channels; ++ch) {
+            const float* src =
+                reinterpret_cast<const float*>(c.mChannelData[ch]);
+            dest[w] = src[f];
+            w += 1;
+          }
+        }
+      } else {
+        MOZ_ASSERT(format == AUDIO_FORMAT_S16);
+        int16_t* dest = reinterpret_cast<int16_t*>(buffer.data.get());
+        size_t w = 0;
+        for (size_t f = 0; f < buffer.frames; ++f) {
+          for (size_t ch = 0; ch < buffer.channels; ++ch) {
+            const int16_t* src =
+                reinterpret_cast<const int16_t*>(c.mChannelData[ch]);
+            dest[w] = src[f];
+            w += 1;
+          }
+        }
+      }
+
+      buffers.AppendElement(std::move(buffer));
+    }
+
+    return MakeUnique<nsTArray<InterleaveBuffer>>(std::move(buffers));
   }
 };
 

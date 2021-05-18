@@ -167,8 +167,9 @@ class AudioInputProcessing : public AudioDataListener {
 
   void Disconnect(MediaTrackGraphImpl* aGraph) override;
 
-  void ProcessInput(MediaTrackGraphImpl* aGraph, const AudioDataValue* aBuffer,
-                    size_t aFrames, TrackRate aRate, uint32_t aChannels);
+  void ProcessInput(MediaTrackGraphImpl* aGraph, const AudioSegment* aSegment);
+  void Append(MediaTrackGraphImpl* aGraph, const AudioSegment* aSegment);
+  void Packetize(MediaTrackGraphImpl* aGraph, const AudioSegment* aSegment);
 
   template <typename T>
   void InsertInGraph(MediaTrackGraphImpl* aGraph, const T* aBuffer,
