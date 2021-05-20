@@ -1307,19 +1307,19 @@ void AudioInputTrack::ProcessInput(GraphTime aFrom, GraphTime aTo,
                                    uint32_t aFlags) {
   TRACE_COMMENT("AudioInputTrack %p", this);
 
-  // Check if there is a connected NativeInputTrack
-  NativeInputTrack* source = nullptr;
+  // Check if there is a connected DeviceInputTrack
+  DeviceInputTrack* source = nullptr;
   if (!mInputs.IsEmpty()) {
     for (const MediaInputPort* input : mInputs) {
       MOZ_ASSERT(input->GetSource());
-      if (input->GetSource()->AsNativeInputTrack()) {
-        source = input->GetSource()->AsNativeInputTrack();
+      if (input->GetSource()->AsDeviceInputTrack()) {
+        source = input->GetSource()->AsDeviceInputTrack();
         break;
       }
     }
   }
 
-  // Push the input data from the connected NativeInputTrack to mInputProcessing
+  // Push the input data from the connected DeviceInputTrack to mInputProcessing
   if (source) {
     MOZ_ASSERT(source->GraphImpl() == GraphImpl());
     MOZ_ASSERT(source->mSampleRate == mSampleRate);
