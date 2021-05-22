@@ -74,7 +74,7 @@ class DeviceInputTrack : public ProcessedMediaTrack {
   // Only accessed on the graph thread.
   nsTArray<RefPtr<AudioDataListener>> mDataUsers;
 
- private:
+ protected:
   struct BufferInfo {
     const AudioDataValue* mBuffer = nullptr;
     size_t mFrames = 0;
@@ -110,6 +110,29 @@ class DeviceInputTrack : public ProcessedMediaTrack {
   // Only accessed on the main thread.
   // When this becomes zero, this DeviceInputTrack is no longer needed.
   size_t mLinkedTrackCount = 0;
+};
+
+class NativeInputTrack final : public DeviceInputTrack {
+  ~NativeInputTrack() = default;
+  explicit NativeInputTrack(TrackRate aSampleRate)
+      : DeviceInputTrack(aSampleRate) {}
+
+ public:
+  // Main Thread API
+  static NativeInputTrack* Create(MediaTrackGraphImpl* aGraph);
+};
+
+class NonNativeInputTrack final : public DeviceInputTrack {
+  ~NonNativeInputTrack() = default;
+  explicit NonNativeInputTrack(TrackRate aSampleRate)
+      : DeviceInputTrack(aSampleRate) {}
+
+ public:
+  // Main Thread API
+  static NonNativeInputTrack* Create(MediaTrackGraphImpl* aGraph);
+
+ private:
+  UniquePtr<AudioInputStream<AudioDataValue>> mInputStream;
 };
 
 /**
