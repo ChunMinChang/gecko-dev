@@ -101,9 +101,9 @@ class VideoFrame final
                                                   OffscreenCanvas& image,
                                                   const VideoFrameInit& init,
                                                   ErrorResult& aRv);
-  static already_AddRefed<VideoFrame> Constructor(const GlobalObject& global,
-                                                  ImageBitmap& image,
-                                                  const VideoFrameInit& init,
+  static already_AddRefed<VideoFrame> Constructor(const GlobalObject& aGlobal,
+                                                  ImageBitmap& aImage,
+                                                  const VideoFrameInit& aInit,
                                                   ErrorResult& aRv);
   static already_AddRefed<VideoFrame> Constructor(
       const GlobalObject& aGlobal, const ArrayBufferView& aData,
@@ -151,6 +151,7 @@ class VideoFrame final
     ~Format() = default;
     const VideoPixelFormat& PixelFormat() const;
     gfx::SurfaceFormat ToSurfaceFormat() const;
+    void Opaque();
 
     enum class Plane : uint8_t { Y = 0, RGBA = Y, U = 1, UV = U, V = 2, A = 3 };
     nsTArray<Plane> Planes() const;

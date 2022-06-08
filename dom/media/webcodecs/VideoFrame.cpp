@@ -16,6 +16,7 @@
 #include "mozilla/Result.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/dom/DOMRect.h"
+#include "mozilla/dom/ImageBitmap.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/UnionTypes.h"
 #include "mozilla/gfx/2D.h"
@@ -72,8 +73,8 @@ static void WriteData(
 }
 
 /*
- * The following are utilities to convert the VideoColorSpace's member values to
- * gfx's values
+ * The following are utilities to convert between VideoFrame values to gfx's
+ * values.
  */
 
 static gfx::YUVColorSpace ToColorSpace(VideoMatrixCoefficients aMatrix) {
@@ -103,6 +104,24 @@ static gfx::TransferFunction ToTransferFunction(
       MOZ_ASSERT_UNREACHABLE("unsupported VideoTransferCharacteristics");
   }
   return gfx::TransferFunction::Default;
+}
+
+static Maybe<VideoPixelFormat> ToVideoPixelFormat(gfx::SurfaceFormat aFormat) {
+  switch (aFormat) {
+    case gfx::SurfaceFormat::B8G8R8A8:
+      return Some(VideoPixelFormat::BGRA);
+    case gfx::SurfaceFormat::B8G8R8X8:
+      return Some(VideoPixelFormat::BGRX);
+    case gfx::SurfaceFormat::R8G8B8A8:
+      return Some(VideoPixelFormat::RGBA);
+    case gfx::SurfaceFormat::R8G8B8X8:
+      return Some(VideoPixelFormat::RGBX);
+    case gfx::SurfaceFormat::NV12:
+      return Some(VideoPixelFormat::NV12);
+    default:
+      break;
+  }
+  return Nothing();
 }
 
 /*
@@ -472,6 +491,61 @@ static void PickColorSpace(VideoColorSpaceInit& aColorSpace,
   }
 }
 
+// https://w3c.github.io/webcodecs/#validate-videoframeinit
+static Maybe<nsAutoCString> ValidateVideoFrameInit(
+    Maybe<gfx::IntRect>& aVisibleRect, Maybe<gfx::IntSize>& aDisplaySize,
+    const VideoFrameInit& aInit, const VideoFrame::Format& aFormat,
+    const gfx::IntSize& aSize) {
+  auto cleanup = MakeScopeExit([&]() {
+    aVisibleRect.reset();
+    aDisplaySize.reset();
+  });
+
+  // Check picture size.
+  if (aSize.Width() == 0) {
+    return Some(nsAutoCString("picture's width must be positive"));
+  }
+  if (aSize.Height() == 0) {
+    return Some(nsAutoCString("picture's height must be positive"));
+  }
+
+  // Check display size.
+  if (aInit.mDisplayWidth.WasPassed() != aInit.mDisplayHeight.WasPassed()) {
+    return Some(nsAutoCString(
+        "displayWidth and displayHeight cannot be set without the other"));
+  }
+  if (aInit.mDisplayWidth.WasPassed() && aInit.mDisplayHeight.WasPassed()) {
+    if (aInit.mDisplayWidth.Value() == 0) {
+      return Some(nsAutoCString("displayWidth must be positive"));
+    }
+    if (aInit.mDisplayHeight.Value() == 0) {
+      return Some(nsAutoCString("displayHeight must be positive"));
+    }
+    // TODO: Check range of aInit.mDisplay{Width, Height}?
+    aDisplaySize = Some(gfx::IntSize{aInit.mDisplayWidth.Value(),
+                                     aInit.mDisplayHeight.Value()});
+  }
+
+  // Check visibleRect.
+  if (aInit.mVisibleRect.WasPassed()) {
+    if (Maybe<nsAutoCString> error =
+            ToIntRect(aVisibleRect, aInit.mVisibleRect.Value())) {
+      error->Insert("visibleRect's ", 0);
+      return error;
+    }
+    if (Maybe<nsAutoCString> error =
+            ValidateVisibility(aVisibleRect.ref(), aSize)) {
+      return error;
+    }
+    if (Maybe<nsAutoCString> error = VerifyRectOffsetAlignment(aFormat, aVisibleRect.ref())) {
+      return error;
+    }
+    // TODO: Check the aVisibleRect->{X, Y}() is even for some format?
+  }
+
+  return Nothing();
+}
+
 /*
  * The followings are helpers to create a VideoFrame from a given buffer
  */
@@ -743,6 +817,61 @@ static already_AddRefed<VideoFrame> CreateVideoFrameFromBuffer(
       aInit.mTimestamp, colorSpace);
 }
 
+// https://w3c.github.io/webcodecs/#videoframe-initialize-frame-with-resource-and-size
+static already_AddRefed<VideoFrame> InitializeFrameWithResourceAndSize(
+    nsIGlobalObject* aGlobal, const VideoFrameInit& aInit,
+    RefPtr<layers::SourceSurfaceImage> aImage, ErrorResult& aRv) {
+  MOZ_ASSERT(aInit.mTimestamp.WasPassed());
+  MOZ_ASSERT(aImage);
+
+  RefPtr<gfx::SourceSurface> surface = aImage->GetAsSourceSurface();
+  Maybe<VideoFrame::Format> format =
+      ToVideoPixelFormat(surface->GetFormat())
+          .map([](const VideoPixelFormat& aFormat) {
+            return VideoFrame::Format(aFormat);
+          });
+  // TODO: Allow it?
+  if (!format) {
+    aRv.ThrowTypeError("This image has unsupport format");
+    return nullptr;
+  }
+
+  Maybe<gfx::IntRect> visibleRect;
+  Maybe<gfx::IntSize> displaySize;
+  if (Maybe<nsAutoCString> error = ValidateVideoFrameInit(
+          visibleRect, displaySize, aInit, format.ref(), aImage->GetSize())) {
+    aRv.ThrowTypeError(*error);
+    return nullptr;
+  }
+
+  if (aInit.mAlpha == AlphaOption::Discard) {
+    format->Opaque();
+  }
+
+  // TODO: Do we need
+  // https://w3c.github.io/webcodecs/#videoframe-initialize-visible-rect-and-display-size
+  // ?
+  if (!visibleRect) {
+    visibleRect.emplace(gfx::IntRect({0, 0}, aImage->GetSize()));
+  }
+  if (!displaySize) {
+    displaySize.emplace(visibleRect->Size());
+  }
+
+  Maybe<uint64_t> duration =
+      aInit.mDuration.WasPassed() ? Some(aInit.mDuration.Value()) : Nothing();
+
+  // TODO: Guess a colorspace value?
+  const VideoColorSpaceInit colorSpace{};
+  // Get image size by surface->GetSize() instead of aImage->GetSize() since
+  // aImage is going to be forgotten.
+  MOZ_ASSERT(aImage->GetSize() == surface->GetSize());
+  return MakeAndAddRef<VideoFrame>(
+      aGlobal, aImage.forget(), format->PixelFormat(), surface->GetSize(),
+      visibleRect.value(), displaySize.value(), std::move(duration),
+      aInit.mTimestamp.Value(), colorSpace);
+}
+
 /*
  * W3C Webcodecs VideoFrame implementation
  */
@@ -829,12 +958,38 @@ already_AddRefed<VideoFrame> VideoFrame::Constructor(const GlobalObject& global,
 }
 
 /* static */
-already_AddRefed<VideoFrame> VideoFrame::Constructor(const GlobalObject& global,
-                                                     ImageBitmap& image,
-                                                     const VideoFrameInit& init,
-                                                     ErrorResult& aRv) {
-  aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
-  return nullptr;
+already_AddRefed<VideoFrame> VideoFrame::Constructor(
+    const GlobalObject& aGlobal, ImageBitmap& aImage,
+    const VideoFrameInit& aInit, ErrorResult& aRv) {
+  // https://w3c.github.io/webcodecs/#videoframe-constructors
+
+  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
+  if (!global) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  // If the origin of image’s image data is not same origin with the entry
+  // settings object's origin, then throw a SecurityError DOMException.
+
+  if (!aInit.mTimestamp.WasPassed()) {
+    aRv.ThrowTypeError("The timestamp must be set");
+    return nullptr;
+  }
+
+  UniquePtr<ImageBitmapCloneData> data = aImage.ToCloneData();
+  if (!data || !data->mSurface) {
+    // This could happen if `aImage` is `Close()`d
+    aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+    return nullptr;
+  }
+
+  RefPtr<layers::SourceSurfaceImage> image = new layers::SourceSurfaceImage(
+      data->mSurface->GetSize(), data->mSurface.get());
+  // TODO: {x, y}-offset and alpha info are dropped here.
+  // `PremultiplyData` if `data->mAlphaType` is `gfxAlphaType::NonPremult`?
+
+  return InitializeFrameWithResourceAndSize(global, aInit, image.forget(), aRv);
 }
 
 /* static */
@@ -1116,6 +1271,29 @@ gfx::SurfaceFormat VideoFrame::Format::ToSurfaceFormat() const {
       MOZ_ASSERT_UNREACHABLE("unsupported format");
   }
   return format;
+}
+
+void VideoFrame::Format::Opaque() {
+  switch (mFormat) {
+    case VideoPixelFormat::I420A:
+      mFormat = VideoPixelFormat::I420;
+      return;
+    case VideoPixelFormat::RGBA:
+      mFormat = VideoPixelFormat::RGBX;
+      return;
+    case VideoPixelFormat::BGRA:
+      mFormat = VideoPixelFormat::BGRX;
+      return;
+    case VideoPixelFormat::I420:
+    case VideoPixelFormat::I422:
+    case VideoPixelFormat::I444:
+    case VideoPixelFormat::NV12:
+    case VideoPixelFormat::RGBX:
+    case VideoPixelFormat::BGRX:
+      return;
+    default:
+      MOZ_ASSERT_UNREACHABLE("unsupported format");
+  }
 }
 
 nsTArray<VideoFrame::Format::Plane> VideoFrame::Format::Planes() const {
