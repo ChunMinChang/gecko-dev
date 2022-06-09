@@ -72,6 +72,79 @@ static void WriteData(
 }
 
 /*
+ * The following are utilities to convert the VideoColorSpace's member values to
+ * gfx's values
+ */
+
+static gfx::YUVColorSpace ToColorSpace(VideoMatrixCoefficients aMatrix) {
+  switch (aMatrix) {
+    case VideoMatrixCoefficients::Rgb:
+      return gfx::YUVColorSpace::Identity;
+    case VideoMatrixCoefficients::Bt709:
+      return gfx::YUVColorSpace::BT709;
+    case VideoMatrixCoefficients::Bt470bg:
+    case VideoMatrixCoefficients::Smpte170m:
+      return gfx::YUVColorSpace::BT601;
+    default:
+      MOZ_ASSERT_UNREACHABLE("unsupported VideoMatrixCoefficients");
+  }
+  return gfx::YUVColorSpace::Default;
+}
+
+static gfx::TransferFunction ToTransferFunction(
+    VideoTransferCharacteristics aTransfer) {
+  switch (aTransfer) {
+    case VideoTransferCharacteristics::Bt709:
+    case VideoTransferCharacteristics::Smpte170m:
+      return gfx::TransferFunction::BT709;
+    case VideoTransferCharacteristics::Iec61966_2_1:
+      return gfx::TransferFunction::SRGB;
+    default:
+      MOZ_ASSERT_UNREACHABLE("unsupported VideoTransferCharacteristics");
+  }
+  return gfx::TransferFunction::Default;
+}
+
+/*
+ * The following are helpers to read the image data from the given buffer and
+ * the format. The data layout is illustrated in the comments for
+ * `VideoFrame::Format` below.
+ */
+
+class I420BufferReader {
+ public:
+  I420BufferReader(uint8_t* aBuffer, int32_t aWidth, int32_t aHeight)
+      : mWidth(aWidth),
+        mHeight(aHeight),
+        mStrideY(aWidth),
+        mStrideU((aWidth + 1) / 2),
+        mStrideV((aWidth + 1) / 2),
+        mChromaSubsampling(gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT),
+        mBuffer(aBuffer) {}
+
+  const uint8_t* DataY() const { return mBuffer; }
+  const uint8_t* DataU() const {
+    CheckedInt<size_t> offset = CheckedInt<size_t>(mStrideY) * mHeight;
+    return DataY() + offset.value();
+  }
+  const uint8_t* DataV() const {
+    CheckedInt<size_t> offset =
+        CheckedInt<size_t>(mStrideU) * (mHeight + 1) / 2;
+    return DataU() + offset.value();
+  }
+
+  const int32_t mWidth;
+  const int32_t mHeight;
+  const int32_t mStrideY;
+  const int32_t mStrideU;
+  const int32_t mStrideV;
+  const gfx::ChromaSubsampling mChromaSubsampling;
+
+ protected:
+  const uint8_t* mBuffer;
+};
+
+/*
  * The followings are helpers defined in
  * https://w3c.github.io/webcodecs/#videoframe-algorithms
  */
@@ -155,6 +228,17 @@ static Maybe<nsAutoCString> ValidateVisibility(const gfx::IntRect& aVisibleRect,
                       "picture's height"));
   }
 
+  return Nothing();
+}
+
+// Utility to check coded{Width, Height} and visibleRect.{x, y} are even. See:
+// https://w3c.github.io/webcodecs/#pixel-format
+static Maybe<bool> IsValueOdd(const VideoPixelFormat& aFormat,
+                              uint32_t aValue) {
+  if (aFormat == VideoPixelFormat::I420 || aFormat == VideoPixelFormat::I420A ||
+      aFormat == VideoPixelFormat::I422 || aFormat == VideoPixelFormat::NV12) {
+    return Some(aValue % 2 != 0);
+  }
   return Nothing();
 }
 
@@ -331,6 +415,7 @@ static Maybe<nsAutoCString> ParseVideoFrameCopyToOptions(
             VerifyRectSizeAlignment(aFormat, overrideRect.value())) {
       return error;
     }
+    // TODO: Check the overrideRect->{X, Y}() is even for some format?
   }
 
   gfx::IntRect parsedRect = aVisibleRect;
@@ -354,7 +439,8 @@ static void PickColorSpace(VideoColorSpaceInit& aColorSpace,
                            const VideoPixelFormat& aFormat) {
   if (aInitColorSpace) {
     aColorSpace = *aInitColorSpace;
-    // TODO: we MAY replace null members of aInitColorSpace with guessed values.
+    // TODO: we MAY replace null members of aInitColorSpace with guessed values
+    // so we can always use these in CreateYUVImageFromBuffer
     return;
   }
 
@@ -470,11 +556,48 @@ static already_AddRefed<layers::Image> CreateRGBAImageFromBuffer(
                                 aBuffer, aBufferLength);
 }
 
+static already_AddRefed<layers::Image> CreateYUVImageFromBuffer(
+    const VideoFrame::Format& aFormat, const VideoColorSpaceInit& aColorSpace,
+    const gfx::IntSize& aSize, uint8_t* aBuffer, uint32_t aBufferLength) {
+  MOZ_ASSERT(aFormat.PixelFormat() == VideoPixelFormat::I420);
+
+  I420BufferReader reader(aBuffer, aSize.Width(), aSize.Height());
+
+  layers::PlanarYCbCrData yCbCrData;
+  yCbCrData.mYChannel = const_cast<uint8_t*>(reader.DataY());
+  yCbCrData.mYStride = reader.mStrideY;
+  yCbCrData.mCbChannel = const_cast<uint8_t*>(reader.DataU());
+  yCbCrData.mCrChannel = const_cast<uint8_t*>(reader.DataV());
+  yCbCrData.mCbCrStride = reader.mStrideU;
+  yCbCrData.mPictureRect = gfx::IntRect(0, 0, reader.mWidth, reader.mHeight);
+  yCbCrData.mChromaSubsampling = reader.mChromaSubsampling;
+  if (aColorSpace.mFullRange.WasPassed() && aColorSpace.mFullRange.Value()) {
+    yCbCrData.mColorRange = gfx::ColorRange::FULL;
+  }
+  // TODO: Is this correct? Should match to `enum MatrixCoefficients`?
+  if (aColorSpace.mMatrix.WasPassed()) {
+    yCbCrData.mYUVColorSpace = ToColorSpace(aColorSpace.mMatrix.Value());
+  }
+  // TODO: Is this correct? Should match to `enum TransferCharacteristics`?
+  if (aColorSpace.mTransfer.WasPassed()) {
+    yCbCrData.mTransferFunction =
+        ToTransferFunction(aColorSpace.mTransfer.Value());
+  }
+  // What about aColorSpace.mPrimaries? Should match to `enum ColourPrimaries`?
+
+  RefPtr<layers::PlanarYCbCrImage> image =
+      new layers::RecyclingPlanarYCbCrImage(new layers::BufferRecycleBin());
+  image->CopyData(yCbCrData);
+  return image.forget();
+}
+
 static already_AddRefed<layers::Image> CreateImageFromBuffer(
-    const VideoFrame::Format& aFormat, const gfx::IntSize& aSize,
-    uint8_t* aBuffer, uint32_t aBufferLength) {
+    const VideoFrame::Format& aFormat, const VideoColorSpaceInit& aColorSpace,
+    const gfx::IntSize& aSize, uint8_t* aBuffer, uint32_t aBufferLength) {
   switch (aFormat.PixelFormat()) {
     case VideoPixelFormat::I420:
+      return CreateYUVImageFromBuffer(aFormat, aColorSpace, aSize, aBuffer,
+                                      aBufferLength);
     case VideoPixelFormat::I420A:
     case VideoPixelFormat::I422:
     case VideoPixelFormat::I444:
@@ -485,6 +608,7 @@ static already_AddRefed<layers::Image> CreateImageFromBuffer(
     case VideoPixelFormat::RGBX:
     case VideoPixelFormat::BGRA:
     case VideoPixelFormat::BGRX:
+      // TODO: Do we care color space for RGBA image?
       return CreateRGBAImageFromBuffer(aFormat, aSize, aBuffer, aBufferLength);
     default:
       MOZ_ASSERT_UNREACHABLE("unsupported format");
@@ -504,6 +628,30 @@ static already_AddRefed<VideoFrame> CreateVideoFrameFromBuffer(
     return nullptr;
   }
 
+  // Validate coded size.
+  // TODO: spec doesn't ask for this but `Test invalid buffer constructed
+  // VideoFrames` fails without this. So we do what Chromium does:
+  // https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/modules/webcodecs/video_frame.cc;l=714;drc=181ac89ede9838b737b7900ea13438cc4173d784
+  if (aInit.mCodedWidth == 0) {
+    aRv.ThrowTypeError("CodedWidth must be positive");
+    return nullptr;
+  }
+  if (aInit.mCodedHeight == 0) {
+    aRv.ThrowTypeError("codedHeight must be positive");
+    return nullptr;
+  }
+  // TODO: spec doesn't ask for this in ctor but Pixel Format does.
+  if (Maybe<bool> isOdd = IsValueOdd(aInit.mFormat, aInit.mCodedWidth);
+      isOdd && *isOdd) {
+    aRv.ThrowTypeError("CodedWidth must be even");
+    return nullptr;
+  }
+  if (Maybe<bool> isOdd = IsValueOdd(aInit.mFormat, aInit.mCodedHeight);
+      isOdd && *isOdd) {
+    aRv.ThrowTypeError("codedHeight must be even");
+    return nullptr;
+  }
+
   Maybe<gfx::IntRect> visibleRect;
   if (aInit.mVisibleRect.WasPassed()) {
     // TODO: spec doesn't check if any attribute of visibleRect is negative, but
@@ -512,6 +660,17 @@ static already_AddRefed<VideoFrame> CreateVideoFrameFromBuffer(
             ToIntRect(visibleRect, aInit.mVisibleRect.Value())) {
       error->Insert("visibleRect's ", 0);
       aRv.ThrowTypeError(*error);
+      return nullptr;
+    }
+    // TODO: spec doesn't ask for this in ctor but Pixel Format does.
+    if (Maybe<bool> isOdd = IsValueOdd(aInit.mFormat, visibleRect->X());
+        isOdd && *isOdd) {
+      aRv.ThrowTypeError("visibleRect's X must be even");
+      return nullptr;
+    }
+    if (Maybe<bool> isOdd = IsValueOdd(aInit.mFormat, visibleRect->Y());
+        isOdd && *isOdd) {
+      aRv.ThrowTypeError("visibleRect's X must be even");
       return nullptr;
     }
   }
@@ -570,7 +729,7 @@ static already_AddRefed<VideoFrame> CreateVideoFrameFromBuffer(
       aInit.mFormat);
 
   RefPtr<layers::Image> data = CreateImageFromBuffer(
-      format, codeSize, aBuffer.Data(), byteLength.value());
+      format, colorSpace, codeSize, aBuffer.Data(), byteLength.value());
   if (!data) {
     aRv.ThrowTypeError("Fail to create image (e.g., unsupported format)");
     return nullptr;
