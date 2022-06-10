@@ -11,30 +11,37 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/dom/BindingDeclarations.h"
-#include "mozilla/dom/TypedArray.h"  // Add to make it buildable.
+#include "mozilla/dom/TypedArray.h"
+#include "mozilla/gfx/Point.h"
+#include "mozilla/gfx/Rect.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsWrapperCache.h"
 
-class nsIGlobalObject;  // Add to make it buildable.
+class nsIGlobalObject;
 
 namespace mozilla {
+
+namespace layers {
+class Image;
+}  // namespace layers
+
 namespace dom {
 
 class DOMRectReadOnly;
-class HTMLCanvasElement;  // Add to make it buildable.
-class HTMLImageElement;   // Add to make it buildable.
-class HTMLVideoElement;   // Add to make it buildable.
-class ImageBitmap;        // Add to make it buildable.
+class HTMLCanvasElement;
+class HTMLImageElement;
+class HTMLVideoElement;
+class ImageBitmap;
 class MaybeSharedArrayBufferViewOrMaybeSharedArrayBuffer;
-class OffscreenCanvas;  // Add to make it buildable.
+class OffscreenCanvas;
 class OwningMaybeSharedArrayBufferViewOrMaybeSharedArrayBuffer;
 class Promise;
-class SVGImageElement;  // Add to make it buildable.
+class SVGImageElement;
 class VideoColorSpace;
 class VideoFrame;
-enum class VideoPixelFormat : uint8_t;  // Add to make it buildable.
-struct VideoFrameBufferInit;            // Add to make it buildable.
-struct VideoFrameInit;                  // Add to make it buildable.
+enum class VideoPixelFormat : uint8_t;
+struct VideoFrameBufferInit;
+struct VideoFrameInit;
 struct VideoFrameCopyToOptions;
 
 }  // namespace dom
@@ -54,10 +61,16 @@ class VideoFrame final
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(VideoFrame)
 
  public:
-  VideoFrame();
+  VideoFrame(nsIGlobalObject* aParent, already_AddRefed<layers::Image> aImage,
+             const VideoPixelFormat& aFormat, gfx::IntSize aCodedSize,
+             gfx::IntRect aVisibleRect, gfx::IntSize aDisplaySize,
+             Maybe<uint64_t>&& aDuration, int64_t aTimestamp,
+             const VideoColorSpaceInit& aColorSpace);
+
+  VideoFrame(const VideoFrame& aOther);
 
  protected:
-  ~VideoFrame();
+  ~VideoFrame() = default;
 
  public:
   // This should return something that eventually allows finding a
@@ -93,11 +106,11 @@ class VideoFrame final
                                                   const VideoFrameInit& init,
                                                   ErrorResult& aRv);
   static already_AddRefed<VideoFrame> Constructor(
-      const GlobalObject& global, const ArrayBufferView& data,
-      const VideoFrameBufferInit& init, ErrorResult& aRv);
+      const GlobalObject& aGlobal, const ArrayBufferView& aData,
+      const VideoFrameBufferInit& aInit, ErrorResult& aRv);
   static already_AddRefed<VideoFrame> Constructor(
-      const GlobalObject& global, const ArrayBuffer& data,
-      const VideoFrameBufferInit& init, ErrorResult& aRv);
+      const GlobalObject& aGlobal, const ArrayBuffer& aData,
+      const VideoFrameBufferInit& aInit, ErrorResult& aRv);
 
   Nullable<VideoPixelFormat> GetFormat() const;
 
@@ -105,12 +118,8 @@ class VideoFrame final
 
   uint32_t CodedHeight() const;
 
-  // Return a raw pointer here to avoid refcounting, but make sure it's safe
-  // (the object should be kept alive by the callee).
   already_AddRefed<DOMRectReadOnly> GetCodedRect() const;
 
-  // Return a raw pointer here to avoid refcounting, but make sure it's safe
-  // (the object should be kept alive by the callee).
   already_AddRefed<DOMRectReadOnly> GetVisibleRect() const;
 
   uint32_t DisplayWidth() const;
@@ -121,24 +130,66 @@ class VideoFrame final
 
   Nullable<int64_t> GetTimestamp() const;
 
-  // Return a raw pointer here to avoid refcounting, but make sure it's safe
-  // (the object should be kept alive by the callee).
   already_AddRefed<VideoColorSpace> ColorSpace() const;
 
-  uint32_t AllocationSize(const VideoFrameCopyToOptions& options,
+  uint32_t AllocationSize(const VideoFrameCopyToOptions& aOptions,
                           ErrorResult& aRv);
 
-  // Return a raw pointer here to avoid refcounting, but make sure it's safe
-  // (the object should be kept alive by the callee).
   already_AddRefed<Promise> CopyTo(
-      const MaybeSharedArrayBufferViewOrMaybeSharedArrayBuffer& destination,
-      const VideoFrameCopyToOptions& options, ErrorResult& aRv);
+      const MaybeSharedArrayBufferViewOrMaybeSharedArrayBuffer& aDestination,
+      const VideoFrameCopyToOptions& aOptions, ErrorResult& aRv);
 
-  // Return a raw pointer here to avoid refcounting, but make sure it's safe
-  // (the object should be kept alive by the callee).
   already_AddRefed<VideoFrame> Clone(ErrorResult& aRv);
 
   void Close();
+
+ public:
+  // A VideoPixelFormat wrapper providing utilities for VideoFrame.
+  class Format final {
+   public:
+    explicit Format(const VideoPixelFormat& aFormat);
+    ~Format() = default;
+    const VideoPixelFormat& PixelFormat() const;
+    gfx::SurfaceFormat ToSurfaceFormat() const;
+
+    enum class Plane : uint8_t { Y = 0, RGBA = Y, U = 1, UV = U, V = 2, A = 3 };
+    nsTArray<Plane> Planes() const;
+    uint32_t SampleBytes(const Plane& aPlane) const;
+    gfx::IntSize SampleSize(const Plane& aPlane) const;
+
+   private:
+    VideoPixelFormat mFormat;
+  };
+
+ private:
+  // A class representing the VideoFrame's data.
+  class Resource final {
+   public:
+    Resource(already_AddRefed<layers::Image> aImage, const Format& aFormat);
+    Resource(const Resource& aOther);
+    ~Resource() = default;
+    const Format& Format() const;
+    const uint8_t* Data() const;
+    uint32_t Stride(const Format::Plane& aPlane) const;
+
+   private:
+    RefPtr<layers::Image> mImage;
+    class Format mFormat;
+  };
+
+  nsCOMPtr<nsIGlobalObject> mParent;
+
+  // Use Maybe instead of UniquePtr to allow copy ctor.
+  Maybe<Resource> mResource;  // Nothing() after `Close()`d
+
+  // TODO: Replace this by mResource->mImage->GetSize()?
+  gfx::IntSize mCodedSize;
+  gfx::IntRect mVisibleRect;
+  gfx::IntSize mDisplaySize;
+
+  Maybe<uint64_t> mDuration;
+  Maybe<int64_t> mTimestamp;  // Nothing() after `Close()`d
+  VideoColorSpaceInit mColorSpace;
 };
 
 }  // namespace mozilla::dom
