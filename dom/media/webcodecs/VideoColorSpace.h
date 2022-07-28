@@ -11,21 +11,11 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/dom/BindingDeclarations.h"
+#include "mozilla/dom/VideoColorSpaceBinding.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsWrapperCache.h"
 
-class nsIGlobalObject;  // Add to make it buildable.
-
-namespace mozilla {
-namespace dom {
-
-enum class VideoColorPrimaries : uint8_t;           // Add to make it buildable.
-enum class VideoTransferCharacteristics : uint8_t;  // Add to make it buildable.
-enum class VideoMatrixCoefficients : uint8_t;       // Add to make it buildable.
-struct VideoColorSpaceInit;
-
-}  // namespace dom
-}  // namespace mozilla
+class nsIGlobalObject;
 
 namespace mozilla::dom {
 
@@ -41,10 +31,10 @@ class VideoColorSpace final
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(VideoColorSpace)
 
  public:
-  VideoColorSpace();
+  VideoColorSpace(nsIGlobalObject* aParent, const VideoColorSpaceInit& aInit);
 
  protected:
-  ~VideoColorSpace();
+  ~VideoColorSpace() = default;
 
  public:
   // This should return something that eventually allows finding a
@@ -56,7 +46,7 @@ class VideoColorSpace final
                        JS::Handle<JSObject*> aGivenProto) override;
 
   static already_AddRefed<VideoColorSpace> Constructor(
-      const GlobalObject& global, const VideoColorSpaceInit& init,
+      const GlobalObject& aGlobal, const VideoColorSpaceInit& aInit,
       ErrorResult& aRv);
 
   Nullable<VideoColorPrimaries> GetPrimaries() const;
@@ -68,6 +58,10 @@ class VideoColorSpace final
   Nullable<bool> GetFullRange() const;
 
   void ToJSON(VideoColorSpaceInit& aRetVal);
+
+ private:
+  nsCOMPtr<nsIGlobalObject> mParent;
+  const VideoColorSpaceInit mInit;
 };
 
 }  // namespace mozilla::dom
