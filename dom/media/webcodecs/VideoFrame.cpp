@@ -17,6 +17,7 @@
 #include "mozilla/ScopeExit.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/DOMRect.h"
+#include "mozilla/dom/HTMLImageElement.h"
 #include "mozilla/dom/HTMLVideoElement.h"
 #include "mozilla/dom/ImageBitmap.h"
 #include "mozilla/dom/ImageUtils.h"
@@ -1146,10 +1147,54 @@ JSObject* VideoFrame::WrapObject(JSContext* aCx,
 
 /* static */
 already_AddRefed<VideoFrame> VideoFrame::Constructor(
-    const GlobalObject& global, HTMLImageElement& imageElement,
-    const VideoFrameInit& init, ErrorResult& aRv) {
-  aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
-  return nullptr;
+    const GlobalObject& aGlobal, HTMLImageElement& aImageElement,
+    const VideoFrameInit& aInit, ErrorResult& aRv) {
+  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
+  if (!global) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  // Check the usability.
+  if (aImageElement.IntrinsicState().HasState(ElementState::BROKEN)) {
+    aRv.ThrowInvalidStateError("The image's state is broken");
+    return nullptr;
+  }
+  if (!aImageElement.Complete()) {
+    aRv.ThrowInvalidStateError("The image is not completely loaded yet");
+    return nullptr;
+  }
+  if (aImageElement.NaturalWidth() == 0) {
+    aRv.ThrowInvalidStateError("The image has a width of 0");
+    return nullptr;
+  }
+  if (aImageElement.NaturalHeight() == 0) {
+    aRv.ThrowInvalidStateError("The image has a height of 0");
+    return nullptr;
+  }
+  SurfaceFromElementResult res = nsLayoutUtils::SurfaceFromElement(
+      &aImageElement, nsLayoutUtils::SFE_WANT_FIRST_FRAME_IF_IMAGE);
+  RefPtr<gfx::SourceSurface> surface = res.GetSourceSurface();
+  if (NS_WARN_IF(!surface)) {
+    aRv.ThrowInvalidStateError("The image's surface acquisition failed");
+    return nullptr;
+  }
+
+  // If the origin of HTMLImageElement's image data is not same origin with the
+  // entry settings object's origin, then throw a SecurityError DOMException.
+  if (!IsSameOrigin(global.get(), res.mPrincipal.get())) {
+    aRv.ThrowSecurityError("The image is not same-origin");
+    return nullptr;
+  }
+
+  if (!aInit.mTimestamp.WasPassed()) {
+    aRv.ThrowTypeError("Missing timestamp");
+    return nullptr;
+  }
+
+  RefPtr<layers::SourceSurfaceImage> image =
+      new layers::SourceSurfaceImage(surface.get());
+  return InitializeFrameWithResourceAndSize(global, aInit, image.forget(), aRv);
 }
 
 /* static */
