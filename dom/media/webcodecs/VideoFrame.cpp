@@ -72,6 +72,77 @@ static uint8_t* GetSharedArrayBufferData(
 }
 
 /*
+ * The following are utilities to convert the VideoColorSpace's member values to
+ * gfx's values
+ */
+
+static gfx::YUVColorSpace ToColorSpace(VideoMatrixCoefficients aMatrix) {
+  switch (aMatrix) {
+    case VideoMatrixCoefficients::Rgb:
+      return gfx::YUVColorSpace::Identity;
+    case VideoMatrixCoefficients::Bt709:
+      return gfx::YUVColorSpace::BT709;
+    case VideoMatrixCoefficients::Bt470bg:
+    case VideoMatrixCoefficients::Smpte170m:
+      return gfx::YUVColorSpace::BT601;
+    default:
+      MOZ_ASSERT_UNREACHABLE("unsupported VideoMatrixCoefficients");
+  }
+  return gfx::YUVColorSpace::Default;
+}
+
+static gfx::TransferFunction ToTransferFunction(
+    VideoTransferCharacteristics aTransfer) {
+  switch (aTransfer) {
+    case VideoTransferCharacteristics::Bt709:
+    case VideoTransferCharacteristics::Smpte170m:
+      return gfx::TransferFunction::BT709;
+    case VideoTransferCharacteristics::Iec61966_2_1:
+      return gfx::TransferFunction::SRGB;
+    default:
+      MOZ_ASSERT_UNREACHABLE("unsupported VideoTransferCharacteristics");
+  }
+  return gfx::TransferFunction::Default;
+}
+
+/*
+ * The following are helpers to read the image data from the given buffer and
+ * the format. The data layout is illustrated in the comments for
+ * `VideoFrame::Format` below.
+ */
+
+class I420BufferReader {
+ public:
+  I420BufferReader(const uint8_t* aBuffer, int32_t aWidth, int32_t aHeight)
+      : mWidth(aWidth),
+        mHeight(aHeight),
+        mStrideY(aWidth),
+        mStrideU((aWidth + 1) / 2),
+        mStrideV((aWidth + 1) / 2),
+        mBuffer(aBuffer) {}
+
+  const uint8_t* DataY() const { return mBuffer; }
+  const uint8_t* DataU() const {
+    CheckedInt<size_t> offset = CheckedInt<size_t>(mStrideY) * mHeight;
+    return DataY() + offset.value();
+  }
+  const uint8_t* DataV() const {
+    CheckedInt<size_t> offset =
+        CheckedInt<size_t>(mStrideU) * ((mHeight + 1) / 2);
+    return DataU() + offset.value();
+  }
+
+  const int32_t mWidth;
+  const int32_t mHeight;
+  const int32_t mStrideY;
+  const int32_t mStrideU;
+  const int32_t mStrideV;
+
+ protected:
+  const uint8_t* mBuffer;
+};
+
+/*
  * The followings are helpers defined in
  * https://w3c.github.io/webcodecs/#videoframe-algorithms
  */
@@ -421,7 +492,8 @@ static void PickColorSpace(VideoColorSpaceInit& aColorSpace,
                            const VideoPixelFormat& aFormat) {
   if (aInitColorSpace) {
     aColorSpace = *aInitColorSpace;
-    // TODO: we MAY replace null members of aInitColorSpace with guessed values.
+    // TODO: we MAY replace null members of aInitColorSpace with guessed values
+    // so we can always use these in CreateYUVImageFromBuffer
     return;
   }
 
@@ -531,11 +603,50 @@ static already_AddRefed<layers::Image> CreateRGBAImageFromBuffer(
                                 aBuffer);
 }
 
-static already_AddRefed<layers::Image> CreateImageFromBuffer(
-    const VideoFrame::Format& aFormat, const gfx::IntSize& aSize,
+static already_AddRefed<layers::Image> CreateYUVImageFromI420Buffer(
+    const VideoColorSpaceInit& aColorSpace, const gfx::IntSize& aSize,
     uint8_t* aBuffer) {
+  I420BufferReader reader(aBuffer, aSize.Width(), aSize.Height());
+
+  layers::PlanarYCbCrData data;
+  data.mPictureRect = gfx::IntRect(0, 0, reader.mWidth, reader.mHeight);
+
+  // Y plane.
+  data.mYChannel = const_cast<uint8_t*>(reader.DataY());
+  data.mYStride = reader.mStrideY;
+  data.mYSkip = 0;
+  // Cb plane.
+  data.mCbChannel = const_cast<uint8_t*>(reader.DataU());
+  data.mCbSkip = 0;
+  // Cr plane.
+  data.mCrChannel = const_cast<uint8_t*>(reader.DataV());
+  data.mCbSkip = 0;
+  // CbCr plane vector.
+  data.mCbCrStride = reader.mStrideU;
+  data.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
+  // Color settings.
+  if (aColorSpace.mFullRange.WasPassed() && aColorSpace.mFullRange.Value()) {
+    data.mColorRange = gfx::ColorRange::FULL;
+  }
+  if (aColorSpace.mMatrix.WasPassed()) {
+    data.mYUVColorSpace = ToColorSpace(aColorSpace.mMatrix.Value());
+  }
+  if (aColorSpace.mTransfer.WasPassed()) {
+    data.mTransferFunction = ToTransferFunction(aColorSpace.mTransfer.Value());
+  }
+  // TODO: take care of aColorSpace.mPrimaries.
+
+  RefPtr<layers::PlanarYCbCrImage> image =
+      new layers::RecyclingPlanarYCbCrImage(new layers::BufferRecycleBin());
+  return image->CopyData(data) ? image.forget() : nullptr;
+}
+
+static already_AddRefed<layers::Image> CreateImageFromBuffer(
+    const VideoFrame::Format& aFormat, const VideoColorSpaceInit& aColorSpace,
+    const gfx::IntSize& aSize, uint8_t* aBuffer) {
   switch (aFormat.PixelFormat()) {
     case VideoPixelFormat::I420:
+      return CreateYUVImageFromI420Buffer(aColorSpace, aSize, aBuffer);
     case VideoPixelFormat::I420A:
     case VideoPixelFormat::I422:
     case VideoPixelFormat::I444:
@@ -633,7 +744,7 @@ static already_AddRefed<VideoFrame> CreateVideoFrameFromBuffer(
       aInit.mFormat);
 
   RefPtr<layers::Image> data =
-      CreateImageFromBuffer(format, codedSize, aBuffer.Data());
+      CreateImageFromBuffer(format, colorSpace, codedSize, aBuffer.Data());
   if (!data) {
     aRv.ThrowTypeError(
         "Fail to create image (e.g., unsupported format or no enough memory "
@@ -1382,6 +1493,19 @@ bool VideoFrame::Resource::CopyTo(const Format::Plane& aPlane,
     }
 
     return false;
+  }
+
+  if (mImage->GetFormat() == ImageFormat::PLANAR_YCBCR) {
+    switch (aPlane) {
+      case Format::Plane::Y:
+        return copyPlane(mImage->AsPlanarYCbCrImage()->GetData()->mYChannel);
+      case Format::Plane::U:
+        return copyPlane(mImage->AsPlanarYCbCrImage()->GetData()->mCbChannel);
+      case Format::Plane::V:
+        return copyPlane(mImage->AsPlanarYCbCrImage()->GetData()->mCrChannel);
+      default:
+        MOZ_ASSERT_UNREACHABLE("invalid plane");
+    }
   }
 
   return false;
