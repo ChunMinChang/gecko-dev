@@ -111,17 +111,29 @@ static gfx::TransferFunction ToTransferFunction(
  * `VideoFrame::Format` below.
  */
 
-class I420BufferReader {
+class YUVBufferReaderBase {
  public:
-  I420BufferReader(const uint8_t* aBuffer, int32_t aWidth, int32_t aHeight)
-      : mWidth(aWidth),
-        mHeight(aHeight),
-        mStrideY(aWidth),
-        mStrideU((aWidth + 1) / 2),
-        mStrideV((aWidth + 1) / 2),
-        mBuffer(aBuffer) {}
+  YUVBufferReaderBase(const uint8_t* aBuffer, int32_t aWidth, int32_t aHeight)
+      : mWidth(aWidth), mHeight(aHeight), mStrideY(aWidth), mBuffer(aBuffer) {}
+  virtual ~YUVBufferReaderBase() = default;
 
   const uint8_t* DataY() const { return mBuffer; }
+  const int32_t mWidth;
+  const int32_t mHeight;
+  const int32_t mStrideY;
+
+ protected:
+  const uint8_t* mBuffer;
+};
+
+class I420BufferReader : public YUVBufferReaderBase {
+ public:
+  I420BufferReader(const uint8_t* aBuffer, int32_t aWidth, int32_t aHeight)
+      : YUVBufferReaderBase(aBuffer, aWidth, aHeight),
+        mStrideU((aWidth + 1) / 2),
+        mStrideV((aWidth + 1) / 2) {}
+  virtual ~I420BufferReader() = default;
+
   const uint8_t* DataU() const {
     CheckedInt<size_t> offset = CheckedInt<size_t>(mStrideY) * mHeight;
     return DataY() + offset.value();
@@ -132,14 +144,23 @@ class I420BufferReader {
     return DataU() + offset.value();
   }
 
-  const int32_t mWidth;
-  const int32_t mHeight;
-  const int32_t mStrideY;
   const int32_t mStrideU;
   const int32_t mStrideV;
+};
 
- protected:
-  const uint8_t* mBuffer;
+class NV12BufferReader final : public YUVBufferReaderBase {
+ public:
+  NV12BufferReader(const uint8_t* aBuffer, int32_t aWidth, int32_t aHeight)
+      : YUVBufferReaderBase(aBuffer, aWidth, aHeight),
+        mStrideUV(aWidth + aWidth % 2) {}
+  virtual ~NV12BufferReader() = default;
+
+  const uint8_t* DataUV() const {
+    CheckedInt<size_t> offset = CheckedInt<size_t>(mStrideY) * mHeight;
+    return DataY() + offset.value();
+  }
+
+  const int32_t mStrideUV;
 };
 
 /*
@@ -603,42 +624,71 @@ static already_AddRefed<layers::Image> CreateRGBAImageFromBuffer(
                                 aBuffer);
 }
 
-static already_AddRefed<layers::Image> CreateYUVImageFromI420Buffer(
-    const VideoColorSpaceInit& aColorSpace, const gfx::IntSize& aSize,
-    uint8_t* aBuffer) {
-  I420BufferReader reader(aBuffer, aSize.Width(), aSize.Height());
+static already_AddRefed<layers::Image> CreateYUVImageFromBuffer(
+    const VideoFrame::Format& aFormat, const VideoColorSpaceInit& aColorSpace,
+    const gfx::IntSize& aSize, uint8_t* aBuffer) {
+  if (aFormat.PixelFormat() == VideoPixelFormat::I420) {
+    I420BufferReader reader(aBuffer, aSize.Width(), aSize.Height());
 
-  layers::PlanarYCbCrData data;
-  data.mPictureRect = gfx::IntRect(0, 0, reader.mWidth, reader.mHeight);
+    layers::PlanarYCbCrData data;
+    data.mPictureRect = gfx::IntRect(0, 0, reader.mWidth, reader.mHeight);
 
-  // Y plane.
-  data.mYChannel = const_cast<uint8_t*>(reader.DataY());
-  data.mYStride = reader.mStrideY;
-  data.mYSkip = 0;
-  // Cb plane.
-  data.mCbChannel = const_cast<uint8_t*>(reader.DataU());
-  data.mCbSkip = 0;
-  // Cr plane.
-  data.mCrChannel = const_cast<uint8_t*>(reader.DataV());
-  data.mCbSkip = 0;
-  // CbCr plane vector.
-  data.mCbCrStride = reader.mStrideU;
-  data.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
-  // Color settings.
-  if (aColorSpace.mFullRange.WasPassed() && aColorSpace.mFullRange.Value()) {
-    data.mColorRange = gfx::ColorRange::FULL;
-  }
-  if (aColorSpace.mMatrix.WasPassed()) {
-    data.mYUVColorSpace = ToColorSpace(aColorSpace.mMatrix.Value());
-  }
-  if (aColorSpace.mTransfer.WasPassed()) {
-    data.mTransferFunction = ToTransferFunction(aColorSpace.mTransfer.Value());
-  }
-  // TODO: take care of aColorSpace.mPrimaries.
+    // Y plane.
+    data.mYChannel = const_cast<uint8_t*>(reader.DataY());
+    data.mYStride = reader.mStrideY;
+    data.mYSkip = 0;
+    // Cb plane.
+    data.mCbChannel = const_cast<uint8_t*>(reader.DataU());
+    data.mCbSkip = 0;
+    // Cr plane.
+    data.mCrChannel = const_cast<uint8_t*>(reader.DataV());
+    data.mCbSkip = 0;
+    // CbCr plane vector.
+    data.mCbCrStride = reader.mStrideU;
+    data.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
+    // Color settings.
+    if (aColorSpace.mFullRange.WasPassed() && aColorSpace.mFullRange.Value()) {
+      data.mColorRange = gfx::ColorRange::FULL;
+    }
+    if (aColorSpace.mMatrix.WasPassed()) {
+      data.mYUVColorSpace = ToColorSpace(aColorSpace.mMatrix.Value());
+    }
+    if (aColorSpace.mTransfer.WasPassed()) {
+      data.mTransferFunction =
+          ToTransferFunction(aColorSpace.mTransfer.Value());
+    }
+    // TODO: take care of aColorSpace.mPrimaries.
 
-  RefPtr<layers::PlanarYCbCrImage> image =
-      new layers::RecyclingPlanarYCbCrImage(new layers::BufferRecycleBin());
-  return image->CopyData(data) ? image.forget() : nullptr;
+    RefPtr<layers::PlanarYCbCrImage> image =
+        new layers::RecyclingPlanarYCbCrImage(new layers::BufferRecycleBin());
+    return image->CopyData(data) ? image.forget() : nullptr;
+  }
+
+  if (aFormat.PixelFormat() == VideoPixelFormat::NV12) {
+    NV12BufferReader reader(aBuffer, aSize.Width(), aSize.Height());
+
+    layers::PlanarYCbCrData data;
+    data.mPictureRect = gfx::IntRect(0, 0, reader.mWidth, reader.mHeight);
+
+    // Y plane.
+    data.mYChannel = const_cast<uint8_t*>(reader.DataY());
+    data.mYStride = reader.mStrideY;
+    data.mYSkip = 0;
+    // Cb plane.
+    data.mCbChannel = const_cast<uint8_t*>(reader.DataUV());
+    data.mCbSkip = 1;
+    // Cr plane.
+    data.mCrChannel = data.mCbChannel + 1;
+    data.mCrSkip = 1;
+    // CbCr plane vector.
+    data.mCbCrStride = reader.mStrideUV;
+    data.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
+
+    RefPtr<layers::NVImage> image = new layers::NVImage();
+    return image->SetData(data) ? image.forget() : nullptr;
+  }
+
+  return nullptr;
 }
 
 static already_AddRefed<layers::Image> CreateImageFromBuffer(
@@ -646,11 +696,11 @@ static already_AddRefed<layers::Image> CreateImageFromBuffer(
     const gfx::IntSize& aSize, uint8_t* aBuffer) {
   switch (aFormat.PixelFormat()) {
     case VideoPixelFormat::I420:
-      return CreateYUVImageFromI420Buffer(aColorSpace, aSize, aBuffer);
+    case VideoPixelFormat::NV12:
+      return CreateYUVImageFromBuffer(aFormat, aColorSpace, aSize, aBuffer);
     case VideoPixelFormat::I420A:
     case VideoPixelFormat::I422:
     case VideoPixelFormat::I444:
-    case VideoPixelFormat::NV12:
       // Not yet support for now.
       break;
     case VideoPixelFormat::RGBA:
@@ -1499,7 +1549,7 @@ bool VideoFrame::Resource::CopyTo(const Format::Plane& aPlane,
     switch (aPlane) {
       case Format::Plane::Y:
         return copyPlane(mImage->AsPlanarYCbCrImage()->GetData()->mYChannel);
-      case Format::Plane::U:
+      case Format::Plane::U:  // and UV
         return copyPlane(mImage->AsPlanarYCbCrImage()->GetData()->mCbChannel);
       case Format::Plane::V:
         return copyPlane(mImage->AsPlanarYCbCrImage()->GetData()->mCrChannel);
