@@ -294,7 +294,7 @@ void FillAlphaToRGBA(const uint8_t* aAlpha, const int32_t aAlphaStride,
 }
 
 void ConvertYCbCrAToARGB(const layers::PlanarYCbCrData& aYCbCr,
-                         const layers::PlanarAlphaData& aAlpha,
+                         const layers::PlanarAlphaInfo& aAlpha,
                          const SurfaceFormat& aDestFormat,
                          const IntSize& aDestSize, unsigned char* aDestBuffer,
                          int32_t aStride, PremultFunc premultiplyAlphaOp) {
@@ -324,7 +324,7 @@ void ConvertYCbCrAToARGB(const layers::PlanarYCbCrData& aYCbCr,
     alphaChannel = MakeUnique<uint8_t[]>(alphaSize);
 
     ConvertYCbCr16to8Line(alphaChannel.get(), alphaStride8bpp,
-                          reinterpret_cast<uint16_t*>(aAlpha.mChannel),
+                          reinterpret_cast<uint16_t*>(aYCbCr.mAlphaChannel),
                           aYCbCr.mYStride / 2, aAlpha.mSize.width,
                           aAlpha.mSize.height,
                           BitDepthForColorDepth(aYCbCr.mColorDepth));
@@ -332,7 +332,7 @@ void ConvertYCbCrAToARGB(const layers::PlanarYCbCrData& aYCbCr,
     alphaChannel8bpp = alphaChannel.get();
   } else {
     alphaStride8bpp = aYCbCr.mYStride;
-    alphaChannel8bpp = aAlpha.mChannel;
+    alphaChannel8bpp = aYCbCr.mAlphaChannel;
   }
 
   MOZ_ASSERT(alphaStride8bpp != 0);

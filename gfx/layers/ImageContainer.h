@@ -644,6 +644,10 @@ struct PlanarYCbCrData {
   int32_t mCbCrStride = 0;
   int32_t mCbSkip = 0;
   int32_t mCrSkip = 0;
+  // Alpha buffer
+  // This is currently only used for AVIF and webcodecs therefore makes some
+  // specific assumptions (e.g., Alpha's stride is equal to Y's one)
+  uint8_t* mAlphaChannel = nullptr;
   // Picture region
   gfx::IntRect mPictureRect = gfx::IntRect(0, 0, 0, 0);
   StereoMode mStereoMode = StereoMode::MONO;
@@ -678,8 +682,7 @@ struct PlanarYCbCrData {
 
 // This type is currently only used for AVIF and therefore makes some
 // AVIF-specific assumptions (e.g., Alpha's bpc and stride is equal to Y's one)
-struct PlanarAlphaData {
-  uint8_t* mChannel = nullptr;
+struct PlanarAlphaInfo {
   gfx::IntSize mSize = gfx::IntSize(0, 0);
   gfx::ColorDepth mDepth = gfx::ColorDepth::COLOR_8;
   bool mPremultiplied = false;

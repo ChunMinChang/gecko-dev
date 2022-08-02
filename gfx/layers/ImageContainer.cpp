@@ -684,7 +684,8 @@ bool RecyclingPlanarYCbCrImage::CopyData(const Data& aData) {
   auto cbcrSize = aData.CbCrDataSize();
   const auto checkedSize =
       CheckedInt<uint32_t>(aData.mCbCrStride) * cbcrSize.height * 2 +
-      CheckedInt<uint32_t>(aData.mYStride) * ySize.height;
+      CheckedInt<uint32_t>(aData.mYStride) * ySize.height *
+          (aData.mAlphaChannel ? 2 : 1);
 
   if (!checkedSize.isValid()) return false;
 
@@ -709,6 +710,10 @@ bool RecyclingPlanarYCbCrImage::CopyData(const Data& aData) {
             aData.mCbSkip);
   CopyPlane(mData.mCrChannel, aData.mCrChannel, cbcrSize, aData.mCbCrStride,
             aData.mCrSkip);
+  if (aData.mAlphaChannel) {
+    CopyPlane(mData.mAlphaChannel, aData.mAlphaChannel, ySize, aData.mYStride,
+              aData.mYSkip);
+  }
 
   mSize = aData.mPictureRect.Size();
   mOrigin = aData.mPictureRect.TopLeft();

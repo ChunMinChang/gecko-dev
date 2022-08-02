@@ -29,7 +29,7 @@ using PremultFunc = int (*)(const uint8_t* src_argb, int src_stride_argb,
                             int height);
 
 void ConvertYCbCrAToARGB(const layers::PlanarYCbCrData& aYCbCr,
-                         const layers::PlanarAlphaData& aAlpha,
+                         const layers::PlanarAlphaInfo& aAlpha,
                          const SurfaceFormat& aDestFormat,
                          const IntSize& aDestSize,
                          unsigned char* aDestBuffer,
