@@ -111,14 +111,15 @@ CloneBuffer(
     const OwningMaybeSharedArrayBufferViewOrMaybeSharedArrayBuffer& aBuffer) {
   std::tuple<JS::ArrayBufferOrView, size_t, size_t> info =
       GetArrayBufferInfo(aCx, aBuffer);
-  const JS::ArrayBufferOrView& bufOrView = std::get<0>(info);
+  JS::Rooted<JS::ArrayBufferOrView> abov(aCx);
+  abov.set(std::get<0>(info));
   size_t offset = std::get<1>(info);
   size_t len = std::get<2>(info);
-  if (NS_WARN_IF(!bufOrView)) {
+  if (NS_WARN_IF(!abov)) {
     return Err(NS_ERROR_UNEXPECTED);
   }
 
-  JS::Rooted<JSObject*> obj(aCx, bufOrView.asObject());
+  JS::Rooted<JSObject*> obj(aCx, abov.asObject());
   JS::Rooted<JSObject*> cloned(aCx,
                                JS::ArrayBufferClone(aCx, obj, offset, len));
   if (NS_WARN_IF(!cloned)) {

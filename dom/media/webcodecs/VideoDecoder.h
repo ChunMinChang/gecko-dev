@@ -19,9 +19,12 @@
 #include "mozilla/Result.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/BindingDeclarations.h"
+#include "mozilla/dom/RootedDictionary.h"
+#include "mozilla/dom/VideoColorSpaceBinding.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsStringFwd.h"
 #include "nsWrapperCache.h"
+#include "mozilla/dom/VideoDecoderBinding.h"
 
 class nsIGlobalObject;
 
@@ -45,6 +48,7 @@ struct VideoDecoderConfig;
 struct VideoDecoderInit;
 
 }  // namespace dom
+   //
 
 namespace media {
 class ShutdownBlockingTicket;
@@ -53,6 +57,32 @@ class ShutdownBlockingTicket;
 }  // namespace mozilla
 
 namespace mozilla::dom {
+
+struct VideoColorSpaceInternal
+{
+  explicit VideoColorSpaceInternal(const dom::VideoColorSpaceInit& aColorSpaceInit);
+  VideoColorSpaceInternal() = default;
+  VideoColorSpaceInit ToColorSpaceInit() const;
+  Maybe<bool> mFullRange;
+  Maybe<dom::VideoMatrixCoefficients> mMatrix;
+  Maybe<dom::VideoColorPrimaries> mPrimaries;
+  Maybe<dom::VideoTransferCharacteristics> mTransfer;
+};
+
+struct VideoDecoderConfigInternal
+{
+  explicit VideoDecoderConfigInternal(const dom::VideoDecoderConfig& aConfig);
+  nsString mCodec;
+  Maybe<uint32_t> mCodedHeight;
+  Maybe<uint32_t> mCodedWidth;
+  Maybe<VideoColorSpaceInternal> mColorSpace;
+  Maybe<RefPtr<MediaByteBuffer>> mDescription;
+  Maybe<uint32_t> mDisplayAspectHeight;
+  Maybe<uint32_t> mDisplayAspectWidth;
+  dom::HardwareAcceleration mHardwareAcceleration;
+  Maybe<bool> mOptimizeForLatency;
+};
+
 
 class ConfigureMessage;
 class DecodeMessage;
@@ -155,7 +185,7 @@ class VideoDecoder final : public DOMEventTargetHelper {
 
   // Returns true when mAgent can be created.
   bool CreateDecoderAgent(DecoderAgent::Id aId,
-                          UniquePtr<VideoDecoderConfig>&& aConfig,
+                          UniquePtr<VideoDecoderConfigInternal>&& aConfig,
                           UniquePtr<TrackInfo>&& aInfo);
   void DestroyDecoderAgentIfAny();
 
@@ -174,7 +204,7 @@ class VideoDecoder final : public DOMEventTargetHelper {
   // will be destroyed when "reset" or another "configure" is called (spec
   // allows calling two "configure" without a "reset" in between).
   RefPtr<DecoderAgent> mAgent;
-  UniquePtr<VideoDecoderConfig> mActiveConfig;
+  UniquePtr<VideoDecoderConfigInternal> mActiveConfig;
   uint32_t mDecodeQueueSize;
   bool mDequeueEventScheduled;
 
