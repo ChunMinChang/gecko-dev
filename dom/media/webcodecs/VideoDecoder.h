@@ -58,18 +58,17 @@ class ShutdownBlockingTicket;
 namespace mozilla::dom {
 
 struct VideoColorSpaceInternal {
-  explicit VideoColorSpaceInternal(
-      const dom::VideoColorSpaceInit& aColorSpaceInit);
+  explicit VideoColorSpaceInternal(const VideoColorSpaceInit& aColorSpaceInit);
   VideoColorSpaceInternal() = default;
   VideoColorSpaceInit ToColorSpaceInit() const;
   Maybe<bool> mFullRange;
-  Maybe<dom::VideoMatrixCoefficients> mMatrix;
-  Maybe<dom::VideoColorPrimaries> mPrimaries;
-  Maybe<dom::VideoTransferCharacteristics> mTransfer;
+  Maybe<VideoMatrixCoefficients> mMatrix;
+  Maybe<VideoColorPrimaries> mPrimaries;
+  Maybe<VideoTransferCharacteristics> mTransfer;
 };
 
 struct VideoDecoderConfigInternal {
-  explicit VideoDecoderConfigInternal(const dom::VideoDecoderConfig& aConfig);
+  explicit VideoDecoderConfigInternal(const VideoDecoderConfig& aConfig);
   nsString mCodec;
   Maybe<uint32_t> mCodedHeight;
   Maybe<uint32_t> mCodedWidth;
@@ -77,7 +76,7 @@ struct VideoDecoderConfigInternal {
   Maybe<RefPtr<MediaByteBuffer>> mDescription;
   Maybe<uint32_t> mDisplayAspectHeight;
   Maybe<uint32_t> mDisplayAspectWidth;
-  dom::HardwareAcceleration mHardwareAcceleration;
+  HardwareAcceleration mHardwareAcceleration;
   Maybe<bool> mOptimizeForLatency;
 };
 
