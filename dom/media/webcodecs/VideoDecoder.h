@@ -48,7 +48,6 @@ struct VideoDecoderConfig;
 struct VideoDecoderInit;
 
 }  // namespace dom
-   //
 
 namespace media {
 class ShutdownBlockingTicket;
@@ -58,9 +57,9 @@ class ShutdownBlockingTicket;
 
 namespace mozilla::dom {
 
-struct VideoColorSpaceInternal
-{
-  explicit VideoColorSpaceInternal(const dom::VideoColorSpaceInit& aColorSpaceInit);
+struct VideoColorSpaceInternal {
+  explicit VideoColorSpaceInternal(
+      const dom::VideoColorSpaceInit& aColorSpaceInit);
   VideoColorSpaceInternal() = default;
   VideoColorSpaceInit ToColorSpaceInit() const;
   Maybe<bool> mFullRange;
@@ -69,8 +68,7 @@ struct VideoColorSpaceInternal
   Maybe<dom::VideoTransferCharacteristics> mTransfer;
 };
 
-struct VideoDecoderConfigInternal
-{
+struct VideoDecoderConfigInternal {
   explicit VideoDecoderConfigInternal(const dom::VideoDecoderConfig& aConfig);
   nsString mCodec;
   Maybe<uint32_t> mCodedHeight;
@@ -82,7 +80,6 @@ struct VideoDecoderConfigInternal
   dom::HardwareAcceleration mHardwareAcceleration;
   Maybe<bool> mOptimizeForLatency;
 };
-
 
 class ConfigureMessage;
 class DecodeMessage;
