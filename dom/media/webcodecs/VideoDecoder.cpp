@@ -1051,7 +1051,7 @@ already_AddRefed<Promise> VideoDecoder::IsConfigSupported(
     aRv.Throw(e);
     return p.forget();
   }
-  VideoDecoderConfigInternal internal(aConfig);
+  VideoDecoderConfigInternal internal(config);
   bool canDecode = CanDecode(internal);
   RootedDictionary<VideoDecoderSupport> s(aGlobal.Context());
   s.mConfig.Construct(std::move(config));
