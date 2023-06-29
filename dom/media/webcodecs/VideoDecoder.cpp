@@ -430,11 +430,9 @@ static Result<Ok, nsresult> CloneConfiguration(
     aDest.mColorSpace.Construct(aConfig.mColorSpace.Value());
   }
   if (aConfig.mDescription.WasPassed()) {
-    auto r = CloneBuffer(aCx, aConfig.mDescription.Value());
-    if (r.isErr()) {
-      return Err(r.unwrapErr());
-    }
-    aDest.mDescription.Construct(r.unwrap());
+    aDest.mDescription.Construct();
+    MOZ_TRY(CloneBuffer(aCx, aDest.mDescription.Value(),
+                        aConfig.mDescription.Value()));
   }
   if (aConfig.mDisplayAspectHeight.WasPassed()) {
     aDest.mDisplayAspectHeight.Construct(aConfig.mDisplayAspectHeight.Value());
