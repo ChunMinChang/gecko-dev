@@ -527,19 +527,19 @@ static VideoColorSpaceInternal GuessColorSpace(
 }
 
 #ifdef XP_MACOSX
-static VideoColorSpaceInit GuessColorSpace(const MacIOSurface* aSurface) {
+static VideoColorSpaceInternal GuessColorSpace(const MacIOSurface* aSurface) {
   if (!aSurface) {
     return {};
   }
-  VideoColorSpaceInit colorSpace;
+  VideoColorSpaceInternal colorSpace;
   // TODO: Could ToFullRange(aSurface->GetColorRange()) conflict with the below?
-  colorSpace.mFullRange.SetValue(aSurface->IsFullRange());
+  colorSpace.mFullRange = Some(aSurface->IsFullRange());
   if (Maybe<dom::VideoMatrixCoefficients> m =
           ToMatrixCoefficients(aSurface->GetYUVColorSpace())) {
-    colorSpace.mMatrix.SetValue(*m);
+    colorSpace.mMatrix = Some(*m);
   }
   if (Maybe<VideoColorPrimaries> p = ToPrimaries(aSurface->mColorPrimaries)) {
-    colorSpace.mPrimaries.SetValue(*p);
+    colorSpace.mPrimaries = Some(*p);
   }
   // TODO: Track gfx::TransferFunction setting in
   // MacIOSurface::CreateNV12OrP010Surface to get colorSpace.mTransfer
