@@ -49,6 +49,7 @@ class H264ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
   }
 
   MediaResult CheckForChange(MediaRawData* aSample) override {
+    printf(">>> H264ChangeMonitor::CheckForChange\n");
     // To be usable we need to convert the sample to 4 bytes NAL size AVCC.
     if (!AnnexB::ConvertSampleToAVCC(aSample)) {
       // We need AVCC content to be able to later parse the SPS.

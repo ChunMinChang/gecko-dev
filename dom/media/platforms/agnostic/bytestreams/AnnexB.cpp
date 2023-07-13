@@ -263,12 +263,14 @@ static Result<mozilla::Ok, nsresult> ParseNALUnits(ByteWriter<BigEndian>& aBw,
 bool AnnexB::ConvertSampleToAVCC(mozilla::MediaRawData* aSample,
                                  const RefPtr<MediaByteBuffer>& aAVCCHeader) {
   if (IsAVCC(aSample)) {
+    printf(">>>>> Wow! It's AVCC!\n");
     return ConvertSampleTo4BytesAVCC(aSample).isOk();
   }
   if (!IsAnnexB(aSample)) {
     // Not AnnexB, nothing to convert.
     return true;
   }
+  printf(">>>>> Wow! It's annexb!\n");
 
   nsTArray<uint8_t> nalu;
   ByteWriter<BigEndian> writer(nalu);

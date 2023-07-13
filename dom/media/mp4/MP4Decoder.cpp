@@ -58,9 +58,12 @@ static bool IsTypeValid(const MediaContainerType& aType) {
 /* statis */
 nsTArray<UniquePtr<TrackInfo>> MP4Decoder::GetTracksInfo(
     const MediaContainerType& aType, MediaResult& aError) {
+  printf(">>>>>> MP4Decoder::GetTracksInfo\n");
   nsTArray<UniquePtr<TrackInfo>> tracks;
 
+  printf(">>>>>>>> type: %s\n", aType.Type().AsString().get());
   if (!IsTypeValid(aType)) {
+    printf(">>>>>>>> Invalid type!\n");
     aError = MediaResult(
         NS_ERROR_DOM_MEDIA_FATAL_ERR,
         RESULT_DETAIL("Invalid type:%s", aType.Type().AsString().get()));
@@ -71,6 +74,7 @@ nsTArray<UniquePtr<TrackInfo>> MP4Decoder::GetTracksInfo(
 
   const MediaCodecs& codecs = aType.ExtendedType().Codecs();
   if (codecs.IsEmpty()) {
+    printf(">>>>>>>> empty!\n");
     return tracks;
   }
 
@@ -79,6 +83,7 @@ nsTArray<UniquePtr<TrackInfo>> MP4Decoder::GetTracksInfo(
                        aType.Type() == MEDIAMIMETYPE("video/x-m4v");
 
   for (const auto& codec : codecs.Range()) {
+    printf(">>>>>> codec: %s\n", NS_ConvertUTF16toUTF8(codec).get());
     if (IsAACCodecString(codec)) {
       tracks.AppendElement(
           CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
@@ -129,6 +134,10 @@ nsTArray<UniquePtr<TrackInfo>> MP4Decoder::GetTracksInfo(
           ExtractH264CodecDetails(codec, profile, constraint, level));
       uint32_t width = aType.ExtendedType().GetWidth().refOr(1280);
       uint32_t height = aType.ExtendedType().GetHeight().refOr(720);
+      printf(
+          ">> extract h264 details - profile: %u, constraint: %u, level: %u | "
+          "width : %d, height: %d\n",
+          profile, constraint, level, width, height);
       trackInfo->GetAsVideoInfo()->mExtraData =
           H264::CreateExtraData(profile, constraint, level, {width, height});
       tracks.AppendElement(std::move(trackInfo));
