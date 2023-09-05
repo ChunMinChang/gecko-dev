@@ -24,7 +24,6 @@
 #include "nsCycleCollectionParticipant.h"
 #include "nsStringFwd.h"
 #include "nsWrapperCache.h"
-#include "mozilla/dom/VideoDecoderBinding.h"
 
 class nsIGlobalObject;
 
@@ -44,6 +43,7 @@ class ThreadSafeWorkerRef;
 class VideoFrameOutputCallback;
 class WebCodecsErrorCallback;
 enum class CodecState : uint8_t;
+enum class HardwareAcceleration : uint8_t;
 struct VideoDecoderConfig;
 struct VideoDecoderInit;
 
