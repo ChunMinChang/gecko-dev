@@ -21,6 +21,7 @@
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/RootedDictionary.h"
 #include "mozilla/dom/VideoColorSpaceBinding.h"
+#include "mozilla/dom/VideoFrame.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsStringFwd.h"
 #include "nsWrapperCache.h"
@@ -56,6 +57,50 @@ class ShutdownBlockingTicket;
 }  // namespace mozilla
 
 namespace mozilla::dom {
+
+class VideoDecoder;
+
+class VideoDecoderTraits {
+ public:
+  // using ConfigType = VideoDecoderConfig;
+  // using DecoderType = VideoDecoder;
+  // using InitType = VideoDecoderInit;
+  // using InputType = EncodedVideoChunk;
+  // using OutputType = VideoFrame;
+  using OutputCallbackType = VideoFrameOutputCallback;
+  //   static UniquePtr<MediaDecoderType> CreateDecoder(
+  //       ExecutionContext& execution_context,
+  //       media::GpuVideoAcceleratorFactories* gpu_factories,
+  //       media::MediaLog* media_log);
+  //   static void InitializeDecoder(MediaDecoderType& decoder, bool low_delay,
+  //                                 const MediaConfigType& media_config,
+  //                                 MediaDecoderType::InitCB init_cb,
+  //                                 MediaDecoderType::OutputCB output_cb);
+  //   static int GetMaxDecodeRequests(const MediaDecoderType& decoder);
+  //   static void UpdateDecoderLog(const MediaDecoderType& decoder,
+  //                                const MediaConfigType& media_config,
+  //                                media::MediaLog* media_log);
+  //   static const char* GetName();
+};
+
+template <typename Traits>
+class DecoderTemplate {
+ public:
+  //  protected:
+  // typedef typename Traits::ConfigType ConfigType;
+  // typedef typename Traits::InputType InputType;
+  // typedef typename Traits::OutputType OutputType;
+  typedef typename Traits::OutputCallbackType OutputCallbackType;
+
+  DecoderTemplate(RefPtr<WebCodecsErrorCallback>&& aErrorCallback,
+                  RefPtr<OutputCallbackType>&& aOutputCallback)
+      : mErrorCallback(std::move(aErrorCallback)),
+        mOutputCallback(std::move(aOutputCallback)) {}
+
+  // Constant in practice, only set in ctor.
+  RefPtr<WebCodecsErrorCallback> mErrorCallback;
+  RefPtr<OutputCallbackType> mOutputCallback;
+};
 
 struct VideoColorSpaceInternal {
   explicit VideoColorSpaceInternal(const VideoColorSpaceInit& aColorSpaceInit);
@@ -114,7 +159,8 @@ class ControlMessage {
   const nsCString mTitle;  // Used to identify the message in the logs.
 };
 
-class VideoDecoder final : public DOMEventTargetHelper {
+class VideoDecoder final : public DOMEventTargetHelper,
+                           public DecoderTemplate<VideoDecoderTraits> {
  public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(VideoDecoder, DOMEventTargetHelper)
@@ -201,8 +247,8 @@ class VideoDecoder final : public DOMEventTargetHelper {
   void DestroyDecoderAgentIfAny();
 
   // Constant in practice, only set in ::Constructor.
-  RefPtr<WebCodecsErrorCallback> mErrorCallback;
-  RefPtr<VideoFrameOutputCallback> mOutputCallback;
+  // RefPtr<WebCodecsErrorCallback> mErrorCallback;
+  // RefPtr<VideoFrameOutputCallback> mOutputCallback;
 
   CodecState mState;
   bool mKeyChunkRequired;
