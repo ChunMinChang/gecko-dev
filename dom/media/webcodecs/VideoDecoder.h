@@ -9,6 +9,7 @@
 
 #include <queue>
 
+#include "DecoderTemplate.h"
 #include "js/TypeDecls.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/DOMEventTargetHelper.h"
@@ -81,25 +82,6 @@ class VideoDecoderTraits {
   //                                const MediaConfigType& media_config,
   //                                media::MediaLog* media_log);
   //   static const char* GetName();
-};
-
-template <typename Traits>
-class DecoderTemplate {
- public:
-  //  protected:
-  // typedef typename Traits::ConfigType ConfigType;
-  // typedef typename Traits::InputType InputType;
-  // typedef typename Traits::OutputType OutputType;
-  typedef typename Traits::OutputCallbackType OutputCallbackType;
-
-  DecoderTemplate(RefPtr<WebCodecsErrorCallback>&& aErrorCallback,
-                  RefPtr<OutputCallbackType>&& aOutputCallback)
-      : mErrorCallback(std::move(aErrorCallback)),
-        mOutputCallback(std::move(aOutputCallback)) {}
-
-  // Constant in practice, only set in ctor.
-  RefPtr<WebCodecsErrorCallback> mErrorCallback;
-  RefPtr<OutputCallbackType> mOutputCallback;
 };
 
 struct VideoColorSpaceInternal {
