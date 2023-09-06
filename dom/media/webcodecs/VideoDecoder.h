@@ -44,7 +44,7 @@ class Promise;
 class ThreadSafeWorkerRef;
 class VideoFrameOutputCallback;
 class WebCodecsErrorCallback;
-enum class CodecState : uint8_t;
+// enum class CodecState : uint8_t;
 enum class HardwareAcceleration : uint8_t;
 struct VideoDecoderConfig;
 struct VideoDecoderInit;
@@ -165,7 +165,7 @@ class VideoDecoder final : public DOMEventTargetHelper,
       const GlobalObject& aGlobal, const VideoDecoderInit& aInit,
       ErrorResult& aRv);
 
-  CodecState State() const;
+  //   CodecState State() const;
 
   uint32_t DecodeQueueSize() const;
 
@@ -232,7 +232,7 @@ class VideoDecoder final : public DOMEventTargetHelper,
   // RefPtr<WebCodecsErrorCallback> mErrorCallback;
   // RefPtr<VideoFrameOutputCallback> mOutputCallback;
 
-  CodecState mState;
+  //   CodecState mState;
   bool mKeyChunkRequired;
 
   bool mMessageQueueBlocked;

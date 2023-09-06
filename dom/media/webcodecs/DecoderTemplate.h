@@ -10,21 +10,27 @@
 namespace mozilla::dom {
 
 class WebCodecsErrorCallback;
+enum class CodecState : uint8_t;
 
 template <typename Traits>
 class DecoderTemplate {
- public: // protected?
+ public:
   typedef typename Traits::OutputCallbackType OutputCallbackType;
 
+  // protected ctor?
   DecoderTemplate(RefPtr<WebCodecsErrorCallback>&& aErrorCallback,
                   RefPtr<OutputCallbackType>&& aOutputCallback);
 
   ~DecoderTemplate() = default;
 
+  virtual CodecState State() const;
+
  protected:
   // Constant in practice, only set in ctor.
   RefPtr<WebCodecsErrorCallback> mErrorCallback;
   RefPtr<OutputCallbackType> mOutputCallback;
+
+  CodecState mState;
 };
 
 }  // namespace mozilla::dom

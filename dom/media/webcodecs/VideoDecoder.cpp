@@ -850,7 +850,7 @@ VideoDecoder::VideoDecoder(nsIGlobalObject* aParent,
       DecoderTemplate(std::move(aErrorCallback), std::move(aOutputCallback)),
       // mErrorCallback(std::move(aErrorCallback)),
       // mOutputCallback(std::move(aOutputCallback)),
-      mState(CodecState::Unconfigured),
+      // mState(CodecState::Unconfigured),
       mKeyChunkRequired(true),
       mMessageQueueBlocked(false),
       mAgent(nullptr),
@@ -894,7 +894,7 @@ already_AddRefed<VideoDecoder> VideoDecoder::Constructor(
 }
 
 // https://w3c.github.io/webcodecs/#dom-videodecoder-state
-CodecState VideoDecoder::State() const { return mState; }
+// CodecState VideoDecoder::State() const { return mState; }
 
 uint32_t VideoDecoder::DecodeQueueSize() const { return mDecodeQueueSize; }
 

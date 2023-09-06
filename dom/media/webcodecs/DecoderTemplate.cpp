@@ -14,7 +14,13 @@ DecoderTemplate<Traits>::DecoderTemplate(
     RefPtr<WebCodecsErrorCallback>&& aErrorCallback,
     RefPtr<OutputCallbackType>&& aOutputCallback)
     : mErrorCallback(std::move(aErrorCallback)),
-      mOutputCallback(std::move(aOutputCallback)) {}
+      mOutputCallback(std::move(aOutputCallback)),
+      mState(CodecState::Unconfigured) {}
+
+template <typename Traits>
+CodecState DecoderTemplate<Traits>::State() const {
+  return mState;
+}
 
 }  // namespace mozilla::dom
 
