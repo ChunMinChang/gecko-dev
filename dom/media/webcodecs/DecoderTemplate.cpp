@@ -15,11 +15,17 @@ DecoderTemplate<Traits>::DecoderTemplate(
     RefPtr<OutputCallbackType>&& aOutputCallback)
     : mErrorCallback(std::move(aErrorCallback)),
       mOutputCallback(std::move(aOutputCallback)),
-      mState(CodecState::Unconfigured) {}
+      mState(CodecState::Unconfigured),
+      mDecodeQueueSize(0) {}
 
 template <typename Traits>
 CodecState DecoderTemplate<Traits>::State() const {
   return mState;
+}
+
+template <typename Traits>
+uint32_t DecoderTemplate<Traits>::DecodeQueueSize() const {
+  return mDecodeQueueSize;
 }
 
 }  // namespace mozilla::dom

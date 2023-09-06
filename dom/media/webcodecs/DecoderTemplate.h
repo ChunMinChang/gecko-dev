@@ -25,12 +25,16 @@ class DecoderTemplate {
 
   virtual CodecState State() const;
 
+  virtual uint32_t DecodeQueueSize() const;
+
  protected:
   // Constant in practice, only set in ctor.
   RefPtr<WebCodecsErrorCallback> mErrorCallback;
   RefPtr<OutputCallbackType> mOutputCallback;
 
   CodecState mState;
+
+  uint32_t mDecodeQueueSize;
 };
 
 }  // namespace mozilla::dom

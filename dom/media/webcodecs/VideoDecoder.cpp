@@ -855,7 +855,7 @@ VideoDecoder::VideoDecoder(nsIGlobalObject* aParent,
       mMessageQueueBlocked(false),
       mAgent(nullptr),
       mActiveConfig(nullptr),
-      mDecodeQueueSize(0),
+      // mDecodeQueueSize(0),
       mDequeueEventScheduled(false),
       mLatestConfigureId(ConfigureMessage::NoId),
       mDecodeCounter(0),
@@ -896,7 +896,7 @@ already_AddRefed<VideoDecoder> VideoDecoder::Constructor(
 // https://w3c.github.io/webcodecs/#dom-videodecoder-state
 // CodecState VideoDecoder::State() const { return mState; }
 
-uint32_t VideoDecoder::DecodeQueueSize() const { return mDecodeQueueSize; }
+// uint32_t VideoDecoder::DecodeQueueSize() const { return mDecodeQueueSize; }
 
 // https://w3c.github.io/webcodecs/#dom-videodecoder-configure
 void VideoDecoder::Configure(const VideoDecoderConfig& aConfig,

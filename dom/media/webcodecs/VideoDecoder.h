@@ -167,7 +167,7 @@ class VideoDecoder final : public DOMEventTargetHelper,
 
   //   CodecState State() const;
 
-  uint32_t DecodeQueueSize() const;
+  //   uint32_t DecodeQueueSize() const;
 
   void Configure(const VideoDecoderConfig& aConfig, ErrorResult& aRv);
 
@@ -244,7 +244,7 @@ class VideoDecoder final : public DOMEventTargetHelper,
   // allows calling two "configure" without a "reset" in between).
   RefPtr<DecoderAgent> mAgent;
   UniquePtr<VideoDecoderConfigInternal> mActiveConfig;
-  uint32_t mDecodeQueueSize;
+  //   uint32_t mDecodeQueueSize;
   bool mDequeueEventScheduled;
 
   // A unique id tracking the ConfigureMessage and will be used as the
