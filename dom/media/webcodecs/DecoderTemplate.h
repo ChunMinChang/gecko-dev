@@ -31,6 +31,11 @@ class DecoderTemplate : public DOMEventTargetHelper {
   virtual uint32_t DecodeQueueSize() const;
 
  protected:
+  // DecoderTemplate can run on either main thread or worker thread.
+  void AssertIsOnOwningThread() const {
+    NS_ASSERT_OWNINGTHREAD(DecoderTemplate);
+  }
+
   // Constant in practice, only set in ctor.
   RefPtr<WebCodecsErrorCallback> mErrorCallback;
   RefPtr<OutputCallbackType> mOutputCallback;

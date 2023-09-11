@@ -182,8 +182,8 @@ class VideoDecoder final : public DecoderTemplate<VideoDecoderTraits> {
       ErrorResult& aRv);
 
  private:
-  // VideoDecoder can run on either main thread or worker thread.
-  void AssertIsOnOwningThread() const { NS_ASSERT_OWNINGTHREAD(VideoDecoder); }
+//   // VideoDecoder can run on either main thread or worker thread.
+//   void AssertIsOnOwningThread() const { NS_ASSERT_OWNINGTHREAD(VideoDecoder); }
 
   Result<Ok, nsresult> Reset(const nsresult& aResult);
   Result<Ok, nsresult> Close(const nsresult& aResult);
