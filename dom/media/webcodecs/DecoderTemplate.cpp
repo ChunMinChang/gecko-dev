@@ -60,8 +60,8 @@ static nsresult FireEvent(DOMEventTargetHelper* aEventTarget,
   return NS_OK;
 }
 
-template <typename Traits>
-DecoderTemplate<Traits>::DecoderTemplate(
+template <typename DecoderType>
+DecoderTemplate<DecoderType>::DecoderTemplate(
     nsIGlobalObject* aGlobalObject,
     RefPtr<WebCodecsErrorCallback>&& aErrorCallback,
     RefPtr<OutputCallbackType>&& aOutputCallback)
@@ -73,18 +73,18 @@ DecoderTemplate<Traits>::DecoderTemplate(
       mDecodeQueueSize(0),
       mDequeueEventScheduled(false) {}
 
-template <typename Traits>
-CodecState DecoderTemplate<Traits>::State() const {
+template <typename DecoderType>
+CodecState DecoderTemplate<DecoderType>::State() const {
   return mState;
 }
 
-template <typename Traits>
-uint32_t DecoderTemplate<Traits>::DecodeQueueSize() const {
+template <typename DecoderType>
+uint32_t DecoderTemplate<DecoderType>::DecodeQueueSize() const {
   return mDecodeQueueSize;
 }
 
-template <typename Traits>
-void DecoderTemplate<Traits>::ScheduleDequeueEvent() {
+template <typename DecoderType>
+void DecoderTemplate<DecoderType>::ScheduleDequeueEvent() {
   AssertIsOnOwningThread();
 
   if (mDequeueEventScheduled) {
