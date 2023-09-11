@@ -45,8 +45,20 @@ class DecoderTemplate : public DOMEventTargetHelper {
   CodecState mState;
   bool mKeyChunkRequired;
 
+  bool mMessageQueueBlocked;
+
   uint32_t mDecodeQueueSize;
   bool mDequeueEventScheduled;
+
+  // A unique id tracking the ConfigureMessage and will be used as the
+  // DecoderAgent's Id.
+  uint32_t mLatestConfigureId;
+  // Tracking how many decode data has been enqueued and this number will be
+  // used as the DecodeMessage's Id.
+  size_t mDecodeCounter;
+  // Tracking how many flush request has been enqueued and this number will be
+  // used as the FlushMessage's Id.
+  size_t mFlushCounter;
 };
 
 }  // namespace mozilla::dom

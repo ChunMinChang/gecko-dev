@@ -852,14 +852,15 @@ VideoDecoder::VideoDecoder(nsIGlobalObject* aParent,
       // mOutputCallback(std::move(aOutputCallback)),
       // mState(CodecState::Unconfigured),
       // mKeyChunkRequired(true),
-      mMessageQueueBlocked(false),
+      // mMessageQueueBlocked(false),
       mAgent(nullptr),
-      mActiveConfig(nullptr),
-      // mDecodeQueueSize(0),
-      // mDequeueEventScheduled(false),
-      mLatestConfigureId(ConfigureMessage::NoId),
-      mDecodeCounter(0),
-      mFlushCounter(0) {
+      mActiveConfig(nullptr)
+// mDecodeQueueSize(0),
+// mDequeueEventScheduled(false),
+// mLatestConfigureId(ConfigureMessage::NoId),
+// mDecodeCounter(0),
+// mFlushCounter(0)
+{
   MOZ_ASSERT(mErrorCallback);
   MOZ_ASSERT(mOutputCallback);
   LOG("VideoDecoder %p ctor", this);

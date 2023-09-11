@@ -70,8 +70,12 @@ DecoderTemplate<DecoderType>::DecoderTemplate(
       mOutputCallback(std::move(aOutputCallback)),
       mState(CodecState::Unconfigured),
       mKeyChunkRequired(true),
+      mMessageQueueBlocked(false),
       mDecodeQueueSize(0),
-      mDequeueEventScheduled(false) {}
+      mDequeueEventScheduled(false),
+      mLatestConfigureId(0),  // ConfigureMessage::NoId
+      mDecodeCounter(0),
+      mFlushCounter(0) {}
 
 template <typename DecoderType>
 CodecState DecoderTemplate<DecoderType>::State() const {

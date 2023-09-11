@@ -233,7 +233,7 @@ class VideoDecoder final : public DecoderTemplate<VideoDecoderTraits> {
   //   CodecState mState;
   //   bool mKeyChunkRequired;
 
-  bool mMessageQueueBlocked;
+  //   bool mMessageQueueBlocked;
   std::queue<UniquePtr<ControlMessage>> mControlMessageQueue;
   UniquePtr<ControlMessage> mProcessingMessage;
 
@@ -245,15 +245,17 @@ class VideoDecoder final : public DecoderTemplate<VideoDecoderTraits> {
   //   uint32_t mDecodeQueueSize;
   //   bool mDequeueEventScheduled;
 
-  // A unique id tracking the ConfigureMessage and will be used as the
-  // DecoderAgent's Id.
-  uint32_t mLatestConfigureId;
-  // Tracking how many decode data has been enqueued and this number will be
-  // used as the DecodeMessage's Id.
-  size_t mDecodeCounter;
-  // Tracking how many flush request has been enqueued and this number will be
-  // used as the FlushMessage's Id.
-  size_t mFlushCounter;
+  //   // A unique id tracking the ConfigureMessage and will be used as the
+  //   // DecoderAgent's Id.
+  //   uint32_t mLatestConfigureId;
+  //   // Tracking how many decode data has been enqueued and this number will
+  //   be
+  //   // used as the DecodeMessage's Id.
+  //   size_t mDecodeCounter;
+  //   // Tracking how many flush request has been enqueued and this number will
+  //   be
+  //   // used as the FlushMessage's Id.
+  //   size_t mFlushCounter;
 
   // Used to add a nsIAsyncShutdownBlocker on main thread to block
   // xpcom-shutdown before the underlying MediaDataDecoder is created. The
