@@ -11,9 +11,11 @@ namespace mozilla::dom {
 
 template <typename Traits>
 DecoderTemplate<Traits>::DecoderTemplate(
+    nsIGlobalObject* aGlobalObject,
     RefPtr<WebCodecsErrorCallback>&& aErrorCallback,
     RefPtr<OutputCallbackType>&& aOutputCallback)
-    : mErrorCallback(std::move(aErrorCallback)),
+    : DOMEventTargetHelper(aGlobalObject),
+      mErrorCallback(std::move(aErrorCallback)),
       mOutputCallback(std::move(aOutputCallback)),
       mState(CodecState::Unconfigured),
       mDecodeQueueSize(0) {}

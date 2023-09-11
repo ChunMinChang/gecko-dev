@@ -846,8 +846,8 @@ class FlushMessage final
 VideoDecoder::VideoDecoder(nsIGlobalObject* aParent,
                            RefPtr<WebCodecsErrorCallback>&& aErrorCallback,
                            RefPtr<VideoFrameOutputCallback>&& aOutputCallback)
-    : DOMEventTargetHelper(aParent),
-      DecoderTemplate(std::move(aErrorCallback), std::move(aOutputCallback)),
+    : DecoderTemplate(aParent, std::move(aErrorCallback),
+                      std::move(aOutputCallback)),
       // mErrorCallback(std::move(aErrorCallback)),
       // mOutputCallback(std::move(aOutputCallback)),
       // mState(CodecState::Unconfigured),

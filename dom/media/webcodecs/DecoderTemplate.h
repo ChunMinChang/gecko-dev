@@ -7,18 +7,21 @@
 #ifndef mozilla_dom_DecoderTemplate_h
 #define mozilla_dom_DecoderTemplate_h
 
+#include "mozilla/DOMEventTargetHelper.h"
+
 namespace mozilla::dom {
 
 class WebCodecsErrorCallback;
 enum class CodecState : uint8_t;
 
-template <typename Traits>
-class DecoderTemplate {
+template <typename DecoderType>
+class DecoderTemplate : public DOMEventTargetHelper {
  public:
-  typedef typename Traits::OutputCallbackType OutputCallbackType;
+  typedef typename DecoderType::OutputCallbackType OutputCallbackType;
 
   // protected ctor?
-  DecoderTemplate(RefPtr<WebCodecsErrorCallback>&& aErrorCallback,
+  DecoderTemplate(nsIGlobalObject* aGlobalObject,
+                  RefPtr<WebCodecsErrorCallback>&& aErrorCallback,
                   RefPtr<OutputCallbackType>&& aOutputCallback);
 
   ~DecoderTemplate() = default;

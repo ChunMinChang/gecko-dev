@@ -12,7 +12,6 @@
 #include "DecoderTemplate.h"
 #include "js/TypeDecls.h"
 #include "mozilla/Attributes.h"
-#include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/DecoderAgent.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/Maybe.h"
@@ -141,8 +140,7 @@ class ControlMessage {
   const nsCString mTitle;  // Used to identify the message in the logs.
 };
 
-class VideoDecoder final : public DOMEventTargetHelper,
-                           public DecoderTemplate<VideoDecoderTraits> {
+class VideoDecoder final : public DecoderTemplate<VideoDecoderTraits> {
  public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(VideoDecoder, DOMEventTargetHelper)
