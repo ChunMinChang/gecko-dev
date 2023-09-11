@@ -41,6 +41,7 @@ class DecoderTemplate : public DOMEventTargetHelper {
   RefPtr<OutputCallbackType> mOutputCallback;
 
   CodecState mState;
+  bool mKeyChunkRequired;
 
   uint32_t mDecodeQueueSize;
 };

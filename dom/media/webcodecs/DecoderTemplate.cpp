@@ -18,6 +18,7 @@ DecoderTemplate<Traits>::DecoderTemplate(
       mErrorCallback(std::move(aErrorCallback)),
       mOutputCallback(std::move(aOutputCallback)),
       mState(CodecState::Unconfigured),
+      mKeyChunkRequired(true),
       mDecodeQueueSize(0) {}
 
 template <typename Traits>

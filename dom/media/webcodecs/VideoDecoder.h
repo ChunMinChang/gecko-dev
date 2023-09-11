@@ -231,7 +231,7 @@ class VideoDecoder final : public DecoderTemplate<VideoDecoderTraits> {
   // RefPtr<VideoFrameOutputCallback> mOutputCallback;
 
   //   CodecState mState;
-  bool mKeyChunkRequired;
+  //   bool mKeyChunkRequired;
 
   bool mMessageQueueBlocked;
   std::queue<UniquePtr<ControlMessage>> mControlMessageQueue;
