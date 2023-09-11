@@ -201,7 +201,7 @@ class VideoDecoder final : public DecoderTemplate<VideoDecoderTraits> {
 
   void ScheduleClose(const nsresult& aResult);
 
-  void ScheduleDequeueEvent();
+  //   void ScheduleDequeueEvent();
 
   void SchedulePromiseResolveOrReject(already_AddRefed<Promise> aPromise,
                                       const nsresult& aResult);
@@ -243,7 +243,7 @@ class VideoDecoder final : public DecoderTemplate<VideoDecoderTraits> {
   RefPtr<DecoderAgent> mAgent;
   UniquePtr<VideoDecoderConfigInternal> mActiveConfig;
   //   uint32_t mDecodeQueueSize;
-  bool mDequeueEventScheduled;
+  //   bool mDequeueEventScheduled;
 
   // A unique id tracking the ConfigureMessage and will be used as the
   // DecoderAgent's Id.

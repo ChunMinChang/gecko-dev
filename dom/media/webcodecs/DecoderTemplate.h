@@ -36,6 +36,8 @@ class DecoderTemplate : public DOMEventTargetHelper {
     NS_ASSERT_OWNINGTHREAD(DecoderTemplate);
   }
 
+  void ScheduleDequeueEvent();
+
   // Constant in practice, only set in ctor.
   RefPtr<WebCodecsErrorCallback> mErrorCallback;
   RefPtr<OutputCallbackType> mOutputCallback;
@@ -44,6 +46,7 @@ class DecoderTemplate : public DOMEventTargetHelper {
   bool mKeyChunkRequired;
 
   uint32_t mDecodeQueueSize;
+  bool mDequeueEventScheduled;
 };
 
 }  // namespace mozilla::dom
