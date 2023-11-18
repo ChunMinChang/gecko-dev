@@ -6,6 +6,9 @@
 
 #include "FFmpegVideoEncoder.h"
 
+#include "FFmpegRuntimeLinker.h"
+#include "nsPrintfCString.h"
+
 namespace mozilla {
 
 RefPtr<MediaDataEncoder::InitPromise> FFmpegVideoEncoder<LIBAV_VER>::Init() {
@@ -31,7 +34,14 @@ RefPtr<GenericPromise> FFmpegVideoEncoder<LIBAV_VER>::SetBitrate(
 }
 
 nsCString FFmpegVideoEncoder<LIBAV_VER>::GetDescriptionName() const {
-  return ""_ns;
+  const char* linker =
+#ifdef USING_MOZFFVPX
+      "ffvpx";
+#else
+      "ffmpeg";
+#endif
+  return nsPrintfCString("%s video encoder (%s)", linker,
+                         FFmpegRuntimeLinker::LinkStatusLibraryName());
 }
 
 }  // namespace mozilla
