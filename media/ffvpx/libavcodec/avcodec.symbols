@@ -71,6 +71,8 @@ avcodec_is_open
 avcodec_license
 avcodec_open2
 avcodec_receive_frame
+avcodec_receive_packet
+avcodec_send_frame
 avcodec_send_packet
 avcodec_string
 avcodec_version
