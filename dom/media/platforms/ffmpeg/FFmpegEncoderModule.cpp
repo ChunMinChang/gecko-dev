@@ -17,8 +17,7 @@ namespace mozilla {
 template <int V>
 bool FFmpegEncoderModule<V>::SupportsMimeType(
     const nsACString& aMimeType) const {
-  // TODO: Check aMimeType to determine if we support or not.
-  return false;
+  return GetFFmpegEncoderCodecId(aMimeType) != AV_CODEC_ID_NONE;
 }
 
 template <int V>
