@@ -15,6 +15,8 @@
 
 namespace mozilla {
 
+static AVCodecID GetFFmpegEncoderCodecId(const nsACString& aMimeType);
+
 template <int V>
 class FFmpegVideoEncoder {};
 
