@@ -9,6 +9,7 @@
 
 #include "PlatformEncoderModule.h"
 #include "FFmpegLibWrapper.h"
+#include "mozilla/ThreadSafety.h"
 
 // This must be the last header included
 #include "FFmpegLibs.h"
@@ -42,6 +43,9 @@ class FFmpegVideoEncoder<LIBAV_VER, ConfigType> final
 
   RefPtr<InitPromise> ProcessInit();
   void ProcessShutdown();
+  int OpenCodecContext(const AVCodec* aCodec, AVDictionary** aOptions)
+      MOZ_EXCLUDES(sMutex);
+  void CloseCodecContext() MOZ_EXCLUDES(sMutex);
 
   // This refers to a static FFmpegLibWrapper, so raw pointer is adequate.
   const FFmpegLibWrapper* mLib;        // set in constructor
@@ -51,6 +55,10 @@ class FFmpegVideoEncoder<LIBAV_VER, ConfigType> final
 
   // mTaskQueue only.
   AVCodecContext* mCodecContext;
+
+  // Provide critical-section for open/close mCodecContext.
+  // TODO: Merge this with FFmpegDataDecoder's one.
+  static StaticMutex sMutex;
 };
 
 }  // namespace mozilla
