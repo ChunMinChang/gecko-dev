@@ -13,6 +13,64 @@
 
 namespace mozilla {
 
+#if LIBAVCODEC_VERSION_MAJOR > 55
+#  define AVCODEC_PIX_FMT_NONE AVPixelFormat::AV_PIX_FMT_NONE
+#  define AVCODEC_PIX_FMT_RGBA AVPixelFormat::AV_PIX_FMT_RGBA
+#  define AVCODEC_PIX_FMT_BGRA AVPixelFormat::AV_PIX_FMT_BGRA
+#  define AVCODEC_PIX_FMT_RGB24 AVPixelFormat::AV_PIX_FMT_RGB24
+#  define AVCODEC_PIX_FMT_BGR24 AVPixelFormat::AV_PIX_FMT_BGR24
+#  define AVCODEC_PIX_FMT_GRAY8 AVPixelFormat::AV_PIX_FMT_GRAY8
+#  define AVCODEC_PIX_FMT_YUV444P AVPixelFormat::AV_PIX_FMT_YUV444P
+#  define AVCODEC_PIX_FMT_YUV422P AVPixelFormat::AV_PIX_FMT_YUV422P
+#  define AVCODEC_PIX_FMT_YUV420P AVPixelFormat::AV_PIX_FMT_YUV420P
+#  define AVCODEC_PIX_FMT_NV12 AVPixelFormat::AV_PIX_FMT_NV12
+#  define AVCODEC_PIX_FMT_NV21 AVPixelFormat::AV_PIX_FMT_NV21
+#else
+#  define AVCODEC_PIX_FMT_NONE PixelFormat::PIX_FMT_NONE
+#  define AVCODEC_PIX_FMT_RGBA PixelFormat::PIX_FMT_RGBA
+#  define AVCODEC_PIX_FMT_BGRA PixelFormat::PIX_FMT_BGRA
+#  define AVCODEC_PIX_FMT_RGB24 PixelFormat::PIX_FMT_RGB24
+#  define AVCODEC_PIX_FMT_BGR24 PixelFormat::PIX_FMT_BGR24
+#  define AVCODEC_PIX_FMT_GRAY8 PixelFormat::PIX_FMT_GRAY8
+#  define AVCODEC_PIX_FMT_YUV444P PixelFormat::PIX_FMT_YUV444P
+#  define AVCODEC_PIX_FMT_YUV422P PixelFormat::PIX_FMT_YUV422P
+#  define AVCODEC_PIX_FMT_YUV420P PixelFormat::PIX_FMT_YUV420P
+#  define AVCODEC_PIX_FMT_NV12 PixelFormat::PIX_FMT_NV12
+#  define AVCODEC_PIX_FMT_NV21 PixelFormat::PIX_FMT_NV21
+#endif
+
+static AVPixelFormat ToAVPixelFormat(
+    const MediaDataEncoder::PixelFormat& aFormat) {
+  switch (aFormat) {
+    case MediaDataEncoder::PixelFormat::RGBA32:
+      return AVCODEC_PIX_FMT_RGBA;
+    case MediaDataEncoder::PixelFormat::BGRA32:
+      return AVCODEC_PIX_FMT_BGRA;
+    case MediaDataEncoder::PixelFormat::RGB24:
+      return AVCODEC_PIX_FMT_RGB24;
+    case MediaDataEncoder::PixelFormat::BGR24:
+      return AVCODEC_PIX_FMT_BGR24;
+    case MediaDataEncoder::PixelFormat::GRAY8:
+      return AVCODEC_PIX_FMT_GRAY8;
+    case MediaDataEncoder::PixelFormat::YUV444P:
+      return AVCODEC_PIX_FMT_YUV444P;
+    case MediaDataEncoder::PixelFormat::YUV422P:
+      return AVCODEC_PIX_FMT_YUV422P;
+    case MediaDataEncoder::PixelFormat::YUV420P:
+      return AVCODEC_PIX_FMT_YUV420P;
+    case MediaDataEncoder::PixelFormat::YUV420SP_NV12:
+      return AVCODEC_PIX_FMT_NV12;
+    case MediaDataEncoder::PixelFormat::YUV420SP_NV21:
+      return AVCODEC_PIX_FMT_NV21;
+    case MediaDataEncoder::PixelFormat::HSV:
+    case MediaDataEncoder::PixelFormat::Lab:
+    case MediaDataEncoder::PixelFormat::DEPTH:
+    case MediaDataEncoder::PixelFormat::EndGuard_:
+      break;
+  }
+  return AVCODEC_PIX_FMT_NONE;
+}
+
 /* static */
 AVCodecID GetFFmpegEncoderCodecId(const nsACString& aMimeType) {
 #if LIBAVCODEC_VERSION_MAJOR >= 54
