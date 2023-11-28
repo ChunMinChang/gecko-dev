@@ -71,6 +71,12 @@ static AVPixelFormat ToAVPixelFormat(
   return AVCODEC_PIX_FMT_NONE;
 }
 
+#if LIBAVCODEC_VERSION_MAJOR >= 57
+#  define AVCODEC_BITRATE_TYPE int64_t
+#else
+#  define AVCODEC_BITRATE_TYPE int
+#endif
+
 /* static */
 AVCodecID GetFFmpegEncoderCodecId(const nsACString& aMimeType) {
 #if LIBAVCODEC_VERSION_MAJOR >= 54
@@ -178,8 +184,29 @@ FFmpegVideoEncoder<LIBAV_VER, ConfigType>::ProcessInit() {
   }
 
   // TODO: setting mCodecContext.
+  mCodecContext->pix_fmt = ToAVPixelFormat(mConfig.mSourcePixelFormat);
+  mCodecContext->bit_rate =
+      static_cast<AVCODEC_BITRATE_TYPE>(mConfig.mBitsPerSec);
+  mCodecContext->width = static_cast<int>(mConfig.mSize.width);
+  mCodecContext->height = static_cast<int>(mConfig.mSize.height);
+  mCodecContext->time_base =
+      AVRational{.num = 1, .den = static_cast<int>(mConfig.mFramerate)};
+#if LIBAVCODEC_VERSION_MAJOR >= 57
+  mCodecContext->framerate =
+      AVRational{.num = static_cast<int>(mConfig.mFramerate), .den = 1};
+#endif
 
-  FFMPEGV_LOG("%s has been initialized", codec->name);
+  // TODO: gop_size, keyint_min, max_b_frame?
+
+  // TODO: Set priv_data via av_opt_set for H264.
+
+  // TODO: Open mCodecContext.
+  FFMPEGV_LOG("%s has been initialized with format: %d, bitrate: %" PRIi64
+              ", width: %d, height: %d, time_base: %d/%d",
+              codec->name, mCodecContext->pix_fmt,
+              static_cast<int64_t>(mCodecContext->bit_rate),
+              mCodecContext->width, mCodecContext->height,
+              mCodecContext->time_base.num, mCodecContext->time_base.den);
   return InitPromise::CreateAndResolve(TrackInfo::kVideoTrack, __func__);
 }
 
@@ -188,6 +215,7 @@ void FFmpegVideoEncoder<LIBAV_VER, ConfigType>::ProcessShutdown() {
   MOZ_ASSERT(mTaskQueue->IsOnCurrentThread());
 
   if (mCodecContext) {
+    // TODO: Close mCodecContext.
     mLib->av_freep(&mCodecContext);
   }
 }
