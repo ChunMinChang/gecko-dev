@@ -11,9 +11,9 @@
 #  include "PlatformDecoderModule.h"
 #  include "mozilla/Span.h"
 #  include "mozilla/gfx/Types.h"
-#  include "vpx/vp8dx.h"
-#  include "vpx/vpx_codec.h"
-#  include "vpx/vpx_decoder.h"
+#  include <vpx/vp8dx.h>
+#  include <vpx/vpx_codec.h>
+#  include <vpx/vpx_decoder.h>
 
 namespace mozilla {
 

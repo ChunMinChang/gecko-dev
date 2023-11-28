@@ -10,7 +10,7 @@
 
 #include "mozilla/RollingMean.h"
 #include "TimeUnits.h"
-#include "vpx/vpx_codec.h"
+#include <vpx/vpx_codec.h>
 
 namespace mozilla {
 

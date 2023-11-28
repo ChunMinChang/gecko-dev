@@ -22,7 +22,7 @@
 #include "PerformanceRecorder.h"
 #include "prsystem.h"
 #include "VideoUtils.h"
-#include "vpx/vpx_image.h"
+#include <vpx/vpx_image.h>
 
 #undef LOG
 #define LOG(arg, ...)                                                  \
