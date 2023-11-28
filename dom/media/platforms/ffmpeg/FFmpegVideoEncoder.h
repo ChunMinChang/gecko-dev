@@ -24,11 +24,11 @@ class FFmpegVideoEncoder {};
 template <>
 class FFmpegVideoEncoder<LIBAV_VER> final : public MediaDataEncoder {
  public:
-  explicit FFmpegVideoEncoder(const FFmpegLibWrapper* aLib) : mLib(aLib) {
-    MOZ_ASSERT(mLib);
-  };
+  FFmpegVideoEncoder(const FFmpegLibWrapper* aLib, AVCodecID aCodecID,
+                     RefPtr<TaskQueue> aTaskQueue);
 
   /* MediaDataEncoder Methods */
+  // All methods run on the task queue, except for GetDescriptionName.
   RefPtr<InitPromise> Init() override;
   RefPtr<EncodePromise> Encode(const MediaData* aSample) override;
   RefPtr<EncodePromise> Drain() override;
@@ -39,8 +39,16 @@ class FFmpegVideoEncoder<LIBAV_VER> final : public MediaDataEncoder {
  private:
   ~FFmpegVideoEncoder() = default;
 
+  RefPtr<InitPromise> ProcessInit();
+  void ProcessShutdown();
+
   // This refers to a static FFmpegLibWrapper, so raw pointer is adequate.
-  const FFmpegLibWrapper* mLib;  // set in constructor
+  const FFmpegLibWrapper* mLib;        // set in constructor
+  const AVCodecID mCodecID;            // set in constructor
+  const RefPtr<TaskQueue> mTaskQueue;  // set in constructor
+
+  // mTaskQueue only.
+  AVCodecContext* mCodecContext;
 };
 
 }  // namespace mozilla
