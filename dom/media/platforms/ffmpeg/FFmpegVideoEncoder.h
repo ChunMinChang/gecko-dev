@@ -17,15 +17,16 @@ namespace mozilla {
 
 static AVCodecID GetFFmpegEncoderCodecId(const nsACString& aMimeType);
 
-template <int V>
+template <int V, typename ConfigType>
 class FFmpegVideoEncoder {};
 
 // TODO: Bug 1860925: FFmpegDataEncoder
-template <>
-class FFmpegVideoEncoder<LIBAV_VER> final : public MediaDataEncoder {
+template <typename ConfigType>
+class FFmpegVideoEncoder<LIBAV_VER, ConfigType> final
+    : public MediaDataEncoder {
  public:
   FFmpegVideoEncoder(const FFmpegLibWrapper* aLib, AVCodecID aCodecID,
-                     RefPtr<TaskQueue> aTaskQueue);
+                     RefPtr<TaskQueue> aTaskQueue, const ConfigType& aConfig);
 
   /* MediaDataEncoder Methods */
   // All methods run on the task queue, except for GetDescriptionName.
@@ -46,6 +47,7 @@ class FFmpegVideoEncoder<LIBAV_VER> final : public MediaDataEncoder {
   const FFmpegLibWrapper* mLib;        // set in constructor
   const AVCodecID mCodecID;            // set in constructor
   const RefPtr<TaskQueue> mTaskQueue;  // set in constructor
+  const ConfigType mConfig;            // set in constructor
 
   // mTaskQueue only.
   AVCodecContext* mCodecContext;
