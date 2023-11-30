@@ -11,6 +11,9 @@
 #include "modules/video_coding/codecs/vp9/include/vp9.h"
 
 #include <memory>
+#include <vpx/vp8cx.h>
+#include <vpx/vp8dx.h>
+#include <vpx/vpx_codec.h>
 
 #include "absl/container/inlined_vector.h"
 #include "api/transport/field_trial_based_config.h"
@@ -22,9 +25,6 @@
 #include "modules/video_coding/codecs/vp9/libvpx_vp9_encoder.h"
 #include "modules/video_coding/svc/create_scalability_structure.h"
 #include "rtc_base/checks.h"
-#include "vpx/vp8cx.h"
-#include "vpx/vp8dx.h"
-#include "vpx/vpx_codec.h"
 
 namespace webrtc {
 

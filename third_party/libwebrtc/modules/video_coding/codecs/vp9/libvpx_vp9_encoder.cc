@@ -17,6 +17,8 @@
 #include <tuple>
 #include <utility>
 #include <vector>
+#include <vpx/vp8cx.h>
+#include <vpx/vpx_encoder.h>
 
 #include "absl/algorithm/container.h"
 #include "absl/memory/memory.h"
@@ -44,8 +46,6 @@
 #include "rtc_base/time_utils.h"
 #include "rtc_base/trace_event.h"
 #include "third_party/libyuv/include/libyuv/convert.h"
-#include "vpx/vp8cx.h"
-#include "vpx/vpx_encoder.h"
 
 namespace webrtc {
 

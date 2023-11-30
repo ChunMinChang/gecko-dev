@@ -16,6 +16,9 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <vpx/vp8.h>
+#include <vpx/vp8dx.h>
+#include <vpx/vpx_decoder.h>
 
 #include "absl/types/optional.h"
 #include "api/scoped_refptr.h"
@@ -31,9 +34,6 @@
 #include "system_wrappers/include/field_trial.h"
 #include "system_wrappers/include/metrics.h"
 #include "third_party/libyuv/include/libyuv/convert.h"
-#include "vpx/vp8.h"
-#include "vpx/vp8dx.h"
-#include "vpx/vpx_decoder.h"
 
 namespace webrtc {
 namespace {
