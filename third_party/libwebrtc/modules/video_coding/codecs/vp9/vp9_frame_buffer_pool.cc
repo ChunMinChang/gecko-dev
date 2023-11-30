@@ -13,12 +13,11 @@
 
 #include "modules/video_coding/codecs/vp9/vp9_frame_buffer_pool.h"
 
-#include <vpx/vpx_codec.h>
-#include <vpx/vpx_decoder.h>
-#include <vpx/vpx_frame_buffer.h>
-
 #include "rtc_base/checks.h"
 #include "rtc_base/logging.h"
+#include "vpx/vpx_codec.h"
+#include "vpx/vpx_decoder.h"
+#include "vpx/vpx_frame_buffer.h"
 
 namespace webrtc {
 

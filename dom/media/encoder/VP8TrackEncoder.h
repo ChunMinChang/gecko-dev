@@ -8,10 +8,9 @@
 
 #include "TrackEncoder.h"
 
-#include <vpx/vpx_codec.h>
-
 #include "mozilla/RollingMean.h"
 #include "TimeUnits.h"
+#include "vpx/vpx_codec.h"
 
 namespace mozilla {
 

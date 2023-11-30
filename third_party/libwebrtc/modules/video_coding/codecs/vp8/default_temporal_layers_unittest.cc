@@ -12,7 +12,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <vpx/vp8cx.h>
 
 #include "api/video/video_bitrate_allocation.h"
 #include "api/video_codecs/video_codec.h"
@@ -23,6 +22,7 @@
 #include "test/field_trial.h"
 #include "test/gmock.h"
 #include "test/gtest.h"
+#include "vpx/vp8cx.h"
 
 // TODO(bugs.webrtc.org/10582): Test the behavior of UpdateConfiguration().
 

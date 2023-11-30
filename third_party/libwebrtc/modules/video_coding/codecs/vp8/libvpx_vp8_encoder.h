@@ -14,8 +14,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <vpx/vp8cx.h>
-#include <vpx/vpx_encoder.h>
 
 #include "api/fec_controller_override.h"
 #include "api/video/encoded_image.h"
@@ -31,6 +29,8 @@
 #include "rtc_base/experiments/cpu_speed_experiment.h"
 #include "rtc_base/experiments/encoder_info_settings.h"
 #include "rtc_base/experiments/rate_control_settings.h"
+#include "vpx/vp8cx.h"
+#include "vpx/vpx_encoder.h"
 
 namespace webrtc {
 

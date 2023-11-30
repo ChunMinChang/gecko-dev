@@ -17,7 +17,6 @@
 #include <array>
 #include <memory>
 #include <vector>
-#include <vpx/vp8cx.h>
 
 #include "api/fec_controller_override.h"
 #include "api/field_trials_view.h"
@@ -32,6 +31,7 @@
 #include "modules/video_coding/utility/framerate_controller_deprecated.h"
 #include "rtc_base/containers/flat_map.h"
 #include "rtc_base/experiments/encoder_info_settings.h"
+#include "vpx/vp8cx.h"
 
 namespace webrtc {
 

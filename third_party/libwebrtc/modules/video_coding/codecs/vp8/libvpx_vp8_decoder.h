@@ -12,8 +12,6 @@
 #define MODULES_VIDEO_CODING_CODECS_VP8_LIBVPX_VP8_DECODER_H_
 
 #include <memory>
-#include <vpx/vp8dx.h>
-#include <vpx/vpx_decoder.h>
 
 #include "absl/types/optional.h"
 #include "api/video/encoded_image.h"
@@ -21,6 +19,8 @@
 #include "common_video/include/video_frame_buffer_pool.h"
 #include "modules/video_coding/codecs/vp8/include/vp8.h"
 #include "modules/video_coding/include/video_codec_interface.h"
+#include "vpx/vp8dx.h"
+#include "vpx/vpx_decoder.h"
 
 namespace webrtc {
 
