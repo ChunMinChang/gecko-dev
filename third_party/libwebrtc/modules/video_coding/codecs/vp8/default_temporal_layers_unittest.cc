@@ -22,7 +22,7 @@
 #include "test/field_trial.h"
 #include "test/gmock.h"
 #include "test/gtest.h"
-#include "vpx/vp8cx.h"
+#include "third_party/libvpx/vpx/vp8cx.h"
 
 // TODO(bugs.webrtc.org/10582): Test the behavior of UpdateConfiguration().
 

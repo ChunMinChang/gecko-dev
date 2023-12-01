@@ -550,6 +550,7 @@ rtc_library("webrtc_libvpx_interface") {
   deps = [ "../../rtc_base:checks" ]
   if (rtc_build_libvpx) {
     deps += [ rtc_libvpx_dir ]
+    public_configs = [ "//third_party/libvpx:libvpx_config" ]
   }
 }
 

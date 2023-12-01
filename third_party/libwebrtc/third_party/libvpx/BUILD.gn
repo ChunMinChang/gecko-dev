@@ -1,0 +1,6 @@
+import("//third_party/libaom/options.gni")
+import("../../webrtc.gni")
+
+config("libvpx_config") {
+  include_dirs = [ "/media/libvpx/libvpx" ]
+}
