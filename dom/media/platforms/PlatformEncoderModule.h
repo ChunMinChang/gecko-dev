@@ -47,10 +47,12 @@ enum H264BitStreamFormat { AVC, ANNEXB };
 
 struct H264Specific final {
   const H264_PROFILE mProfile;
+  const H264_LEVEL mLevel;
   const H264BitStreamFormat mFormat;
 
-  explicit H264Specific(H264_PROFILE aProfile, H264BitStreamFormat aFormat)
-      : mProfile(aProfile), mFormat(aFormat) {}
+  explicit H264Specific(H264_PROFILE aProfile, H264_LEVEL aLevel,
+                        H264BitStreamFormat aFormat)
+      : mProfile(aProfile), mLevel(aLevel), mFormat(aFormat) {}
 };
 
 struct OpusSpecific final {
