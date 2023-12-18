@@ -30,17 +30,17 @@ using FFmpegBitRate = int;
 constexpr size_t FFmpegErrorMaxStringSize = 64;
 #endif
 
-struct H264Profile {
+struct H264Setting {
   int mValue;
   const char* mString;
 };
 
-static const H264Profile H264Profiles[]{{FF_PROFILE_H264_BASELINE, "baseline"},
+static const H264Setting H264Profiles[]{{FF_PROFILE_H264_BASELINE, "baseline"},
                                         {FF_PROFILE_H264_MAIN, "main"},
                                         {FF_PROFILE_H264_EXTENDED, nullptr},
                                         {FF_PROFILE_H264_HIGH, "high"}};
 
-static mozilla::Maybe<H264Profile> GetH264Profile(
+static mozilla::Maybe<H264Setting> GetH264Profile(
     const mozilla::H264_PROFILE& aProfile) {
   switch (aProfile) {
     case mozilla::H264_PROFILE::H264_PROFILE_UNKNOWN:
@@ -58,6 +58,70 @@ static mozilla::Maybe<H264Profile> GetH264Profile(
   }
   MOZ_ASSERT_UNREACHABLE("undefined profile");
   return mozilla::Nothing();
+}
+
+static const char* H264LevelStrs[]{"1.0", "1.1", "1.2", "1.3", "2.0", "2.1",
+                                   "2.2", "3.0", "3.1", "3.2", "4.0", "4.1",
+                                   "4.2", "5.0", "5.1", "5.2"};
+
+static mozilla::Maybe<H264Setting> GetH264Level(
+    const mozilla::H264_LEVEL& aLevel) {
+  static const char* str = nullptr;
+  switch (aLevel) {
+    case mozilla::H264_LEVEL::H264_LEVEL_1:
+      str = H264LevelStrs[0];
+      break;
+    case mozilla::H264_LEVEL::
+        H264_LEVEL_1_1:  // mozilla::H264_LEVEL::H264_LEVEL_1_b
+      str = H264LevelStrs[1];
+      break;
+    case mozilla::H264_LEVEL::H264_LEVEL_1_2:
+      str = H264LevelStrs[2];
+      break;
+    case mozilla::H264_LEVEL::H264_LEVEL_1_3:
+      str = H264LevelStrs[3];
+      break;
+    case mozilla::H264_LEVEL::H264_LEVEL_2:
+      str = H264LevelStrs[4];
+      break;
+    case mozilla::H264_LEVEL::H264_LEVEL_2_1:
+      str = H264LevelStrs[5];
+      break;
+    case mozilla::H264_LEVEL::H264_LEVEL_2_2:
+      str = H264LevelStrs[6];
+      break;
+    case mozilla::H264_LEVEL::H264_LEVEL_3:
+      str = H264LevelStrs[7];
+      break;
+    case mozilla::H264_LEVEL::H264_LEVEL_3_1:
+      str = H264LevelStrs[8];
+      break;
+    case mozilla::H264_LEVEL::H264_LEVEL_3_2:
+      str = H264LevelStrs[9];
+      break;
+    case mozilla::H264_LEVEL::H264_LEVEL_4:
+      str = H264LevelStrs[10];
+      break;
+    case mozilla::H264_LEVEL::H264_LEVEL_4_1:
+      str = H264LevelStrs[11];
+      break;
+    case mozilla::H264_LEVEL::H264_LEVEL_4_2:
+      str = H264LevelStrs[12];
+      break;
+    case mozilla::H264_LEVEL::H264_LEVEL_5:
+      str = H264LevelStrs[13];
+      break;
+    case mozilla::H264_LEVEL::H264_LEVEL_5_1:
+      str = H264LevelStrs[14];
+      break;
+    case mozilla::H264_LEVEL::H264_LEVEL_5_2:
+      str = H264LevelStrs[15];
+      break;
+    default:
+      MOZ_ASSERT_UNREACHABLE("undefined level");
+      return mozilla::Nothing();
+  }
+  return mozilla::Some(H264Setting{static_cast<int>(aLevel), str});
 }
 
 #if LIBAVCODEC_VERSION_MAJOR < 54
@@ -426,7 +490,7 @@ MediaResult FFmpegVideoEncoder<LIBAV_VER>::InitInternal() {
       const H264Specific& specific = mConfig.mCodecSpecific->as<H264Specific>();
 
       // Set profile.
-      Maybe<ffmpeg::H264Profile> profile =
+      Maybe<ffmpeg::H264Setting> profile =
           ffmpeg::GetH264Profile(specific.mProfile);
       if (!profile) {
         FFMPEGV_LOG("failed to get h264 profile");
@@ -439,7 +503,16 @@ MediaResult FFmpegVideoEncoder<LIBAV_VER>::InitInternal() {
                          0);
       }
 
-      // TODO: Set level.
+      // Set level.
+      Maybe<ffmpeg::H264Setting> level = ffmpeg::GetH264Level(specific.mLevel);
+      if (!level) {
+        FFMPEGV_LOG("failed to get h264 level");
+        return MediaResult(NS_ERROR_DOM_MEDIA_NOT_SUPPORTED_ERR,
+                           RESULT_DETAIL("H264 level is unknown"));
+      }
+      mCodecContext->level = level->mValue;
+      MOZ_ASSERT(level->mString);
+      mLib->av_opt_set(mCodecContext->priv_data, "level", level->mString, 0);
     }
   }
   // TODO: keyint_min, max_b_frame?
