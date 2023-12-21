@@ -368,6 +368,12 @@ static bool CanEncode(const RefPtr<VideoEncoderConfigInternal>& aConfig) {
     return false;
   }
 
+  // TODO (1871457): We don't support "quantizer" bitrate now.
+  if (aConfig->mBitrateMode == VideoEncoderBitrateMode::Quantizer) {
+    LOGE("Quantizer bitrate mode is not supported");
+    return false;
+  }
+
   return EncoderSupport::Supports(aConfig);
 }
 
