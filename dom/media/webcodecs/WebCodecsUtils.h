@@ -219,6 +219,8 @@ struct WebCodecsConfigurationChangeList {
 nsCString ColorSpaceInitToString(const dom::VideoColorSpaceInit& aColorSpaceInit);
 
 RefPtr<TaskQueue> GetWebCodecsEncoderTaskQueue();
+VideoColorSpaceInit FallbackColorSpaceForVideoContent();
+VideoColorSpaceInit FallbackColorSpaceForWebContent();
 
 } // namespace dom
 
