@@ -359,10 +359,10 @@ static bool CanEncode(const RefPtr<VideoEncoderConfigInternal>& aConfig) {
     return false;
   }
 
-  // Not supported
-  if (aConfig->mScalabilityMode.isSome() &&
+  // TODO (Bug 1871520): ScalabilityMode is not supported for now.
+  if (aConfig->mScalabilityMode.isSome() /* &&
       !aConfig->mScalabilityMode->EqualsLiteral("L1T2") &&
-      !aConfig->mScalabilityMode->EqualsLiteral("L1T3")) {
+      !aConfig->mScalabilityMode->EqualsLiteral("L1T3") */) {
     LOGE("Scalability mode %s not supported",
          NS_ConvertUTF16toUTF8(aConfig->mScalabilityMode.value()).get());
     return false;
