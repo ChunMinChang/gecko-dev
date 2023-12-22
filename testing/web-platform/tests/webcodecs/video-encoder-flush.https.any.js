@@ -13,6 +13,8 @@ promise_test(async t => {
     displayHeight: 600,
   };
 
+  await checkEncoderSupport(t, encoderConfig);
+
   let outputs = 0;
   let firstOutput = new Promise(resolve => {
     codecInit.output = (chunk, metadata) => {

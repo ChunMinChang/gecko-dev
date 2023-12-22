@@ -351,8 +351,8 @@ static bool IsEncodeSupportedCodec(const nsAString& aCodec) {
 static bool CanEncode(const RefPtr<VideoEncoderConfigInternal>& aConfig) {
   auto parsedCodecString =
       ParseCodecString(aConfig->mCodec).valueOr(EmptyString());
-  // TODO: Enable WebCodecs on Android (Bug 1840508)
-  if (IsOnAndroid()) {
+  // TODO: Enable WebCodecs on non-linux platforms (Bug 1871485)
+  if (!IsOnLinux() || IsOnAndroid()) {
     return false;
   }
   if (!IsEncodeSupportedCodec(parsedCodecString)) {

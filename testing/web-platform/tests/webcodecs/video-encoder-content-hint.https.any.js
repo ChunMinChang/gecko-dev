@@ -1,4 +1,5 @@
 // META: global=window,dedicatedworker
+// META: script=/webcodecs/video-encoder-utils.js
 
 promise_test(async t => {
   const config = {
@@ -12,7 +13,16 @@ promise_test(async t => {
     contentHint: 'text',
   };
 
-  let support = await VideoEncoder.isConfigSupported(config);
+  let support;
+  let supported = false;
+  try {
+    support = await VideoEncoder.isConfigSupported(config);
+    supported = support.supported;
+  } catch (e) {
+  }
+  assert_implements_optional(
+      supported, 'Unsupported config: ' + JSON.stringify(config));
+
   assert_equals(support.supported, true);
 
   let new_config = support.config;

@@ -35,6 +35,8 @@ promise_test(async t => {
     displayHeight: 600,
   };
 
+  await checkEncoderSupport(t, encoderConfig);
+
   codecInit.output = (chunk, metadata) => {
     assert_not_equals(metadata, null);
     if (metadata.decoderConfig)
@@ -83,6 +85,8 @@ promise_test(async t => {
     width: 320,
     height: 200
   };
+
+  await checkEncoderSupport(t, encoderConfig);
 
   codecInit.output = (chunk, metadata) => {}
 
@@ -139,6 +143,8 @@ promise_test(async t => {
 
 
 promise_test(async t => {
+  await checkEncoderSupport(t, defaultConfig);
+
   let timestamp = 0;
   let callbacks_before_reset = 0;
   let callbacks_after_reset = 0;
@@ -205,6 +211,9 @@ promise_test(async t => {
 }, 'Test successful reset() and re-confiugre()');
 
 promise_test(async t => {
+  let config = defaultConfig;
+  await checkEncoderSupport(t, config);
+
   let output_chunks = [];
   const codecInit = {
     output: chunk => output_chunks.push(chunk),
@@ -217,8 +226,6 @@ promise_test(async t => {
 
   // No encodes yet.
   assert_equals(encoder.encodeQueueSize, 0);
-
-  let config = defaultConfig;
 
   encoder.configure(config);
 
@@ -260,6 +267,8 @@ promise_test(async t => {
 }, 'Test successful encode() after re-configure().');
 
 promise_test(async t => {
+  await checkEncoderSupport(t, defaultConfig);
+
   let encoder = new VideoEncoder(getDefaultCodecInit(t));
 
   let frame = createFrame(640, 480, 0);
@@ -276,6 +285,8 @@ promise_test(async t => {
 }, 'Verify unconfigured VideoEncoder operations');
 
 promise_test(async t => {
+  await checkEncoderSupport(t, defaultConfig);
+
   let encoder = new VideoEncoder(getDefaultCodecInit(t));
 
   let frame = createFrame(640, 480, 0);
@@ -289,12 +300,14 @@ promise_test(async t => {
 }, 'Verify encoding closed frames throws.');
 
 promise_test(async t => {
+  let config = defaultConfig;
+  await checkEncoderSupport(t, config);
+
   let output_chunks = [];
   let codecInit = getDefaultCodecInit(t);
   codecInit.output = chunk => output_chunks.push(chunk);
 
   let encoder = new VideoEncoder(codecInit);
-  let config = defaultConfig;
   encoder.configure(config);
 
   let frame = createFrame(640, 480, -10000);
