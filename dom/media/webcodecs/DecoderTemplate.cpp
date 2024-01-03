@@ -722,11 +722,11 @@ MessageProcessedResult DecoderTemplate<DecoderType>::ProcessFlushMessage(
                              MOZ_CAN_RUN_SCRIPT_BOUNDARY {
                                promise->MaybeReject(
                                    NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
-                               self->mProcessingMessage.reset();
                                MOZ_ASSERT(self->mState != CodecState::Closed);
                                self->CloseInternal(
                                    NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
                              });
+                     self->mProcessingMessage.reset();
                      return;
                    }
 
