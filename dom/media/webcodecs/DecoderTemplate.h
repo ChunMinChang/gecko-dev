@@ -180,6 +180,11 @@ class DecoderTemplate : public DOMEventTargetHelper {
       const nsTArray<RefPtr<MediaData>>&& aData);
 
   MOZ_CAN_RUN_SCRIPT
+  // If aPromise is non-NULL, it would be rejected with aResult before close.
+  void QueueCloseTask(const char* aName, const nsresult& aResult,
+                      already_AddRefed<Promise> aPromise = nullptr);
+
+  MOZ_CAN_RUN_SCRIPT
   void ScheduleDequeueEventIfNeeded();
   nsresult FireEvent(nsAtom* aTypeWithOn, const nsAString& aEventType);
 
@@ -192,6 +197,7 @@ class DecoderTemplate : public DOMEventTargetHelper {
   template <typename Func>
   MOZ_CAN_RUN_SCRIPT_BOUNDARY void QueueATask(const char* aName, Func&& aSteps);
 
+  MOZ_CAN_RUN_SCRIPT
   MessageProcessedResult ProcessConfigureMessage(
       UniquePtr<ControlMessage>& aMessage);
 

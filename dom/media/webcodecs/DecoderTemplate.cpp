@@ -333,6 +333,26 @@ void DecoderTemplate<DecoderType>::OutputDecodedData(
 }
 
 template <typename DecoderType>
+void DecoderTemplate<DecoderType>::QueueCloseTask(
+    const char* aName, const nsresult& aResult,
+    already_AddRefed<Promise> aPromise) {
+  AssertIsOnOwningThread();
+  QueueATask(aName, [self = RefPtr{this}, result = aResult,
+                     promise = RefPtr{aPromise}]() MOZ_CAN_RUN_SCRIPT {
+    if (promise) {
+      nsCString err;
+      GetErrorName(result, err);
+      LOGE("%s %p, rejects promise with: %s before close",
+           DecoderType::Name.get(), self.get(), err.get());
+      promise->MaybeReject(result);
+    }
+
+    MOZ_ASSERT(self->mState != CodecState::Closed);
+    self->CloseInternal(result);
+  });
+}
+
+template <typename DecoderType>
 void DecoderTemplate<DecoderType>::ScheduleDequeueEventIfNeeded() {
   AssertIsOnOwningThread();
 
@@ -472,11 +492,8 @@ MessageProcessedResult DecoderTemplate<DecoderType>::ProcessConfigureMessage(
          DecoderType::Name.get(), this, errorMessage.get());
 
     mProcessingMessage.reset();
-    QueueATask("Error while configuring decoder",
-               [self = RefPtr{this}]() MOZ_CAN_RUN_SCRIPT_BOUNDARY {
-                 MOZ_ASSERT(self->mState != CodecState::Closed);
-                 self->CloseInternal(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
-               });
+    QueueCloseTask("Error while configuring decoder",
+                   NS_ERROR_DOM_NOT_SUPPORTED_ERR);
     return MessageProcessedResult::Processed;
   }
 
@@ -521,13 +538,8 @@ MessageProcessedResult DecoderTemplate<DecoderType>::ProcessConfigureMessage(
                       DecoderType::Name.get(), self.get(), id,
                       error.Description().get());
 
-                 self->QueueATask(
-                     "Error during configure",
-                     [self = RefPtr{self}]() MOZ_CAN_RUN_SCRIPT_BOUNDARY {
-                       MOZ_ASSERT(self->mState != CodecState::Closed);
-                       self->CloseInternal(
-                           NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
-                     });
+                 self->QueueCloseTask("Error during configure",
+                                      NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
                  return;
                }
 
@@ -566,11 +578,8 @@ MessageProcessedResult DecoderTemplate<DecoderType>::ProcessDecodeMessage(
   // data is invalid.
   auto closeOnError = [&]() MOZ_CAN_RUN_SCRIPT_BOUNDARY {
     mProcessingMessage.reset();
-    QueueATask("Error during decode",
-               [self = RefPtr{this}]() MOZ_CAN_RUN_SCRIPT_BOUNDARY {
-                 MOZ_ASSERT(self->mState != CodecState::Closed);
-                 self->CloseInternal(NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
-               });
+    QueueCloseTask("Error during decode",
+                   NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
     return MessageProcessedResult::Processed;
   };
 
@@ -619,13 +628,9 @@ MessageProcessedResult DecoderTemplate<DecoderType>::ProcessDecodeMessage(
                      LOGE("%s %p, DecoderAgent #%d %s failed: %s",
                           DecoderType::Name.get(), self.get(), id, msgStr.get(),
                           error.Description().get());
-                     self->QueueATask(
+                     self->QueueCloseTask(
                          "Error during decode runnable",
-                         [self = RefPtr{self}]() MOZ_CAN_RUN_SCRIPT_BOUNDARY {
-                           MOZ_ASSERT(self->mState != CodecState::Closed);
-                           self->CloseInternal(
-                               NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
-                         });
+                         NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
                      return;
                    }
 
@@ -713,19 +718,11 @@ MessageProcessedResult DecoderTemplate<DecoderType>::ProcessFlushMessage(
                      LOGE("%s %p, DecoderAgent #%d failed to flush: %s",
                           DecoderType::Name.get(), self.get(), id,
                           error.Description().get());
-                     RefPtr<Promise> promise = msg->TakePromise();
                      // Reject with an EncodingError instead of the error we got
                      // above.
-                     self->QueueATask(
-                         "Error during flush runnable",
-                         [self = RefPtr{this}, promise]()
-                             MOZ_CAN_RUN_SCRIPT_BOUNDARY {
-                               promise->MaybeReject(
-                                   NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
-                               MOZ_ASSERT(self->mState != CodecState::Closed);
-                               self->CloseInternal(
-                                   NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR);
-                             });
+                     QueueCloseTask("Error during flush runnable",
+                                    NS_ERROR_DOM_ENCODING_NOT_SUPPORTED_ERR,
+                                    msg->TakePromise());
                      self->mProcessingMessage.reset();
                      return;
                    }
