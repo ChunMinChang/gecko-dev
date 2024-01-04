@@ -136,19 +136,14 @@ class DecoderTemplate : public DOMEventTargetHelper {
 
   uint32_t DecodeQueueSize() const { return mDecodeQueueSize; };
 
-  MOZ_CAN_RUN_SCRIPT
   void Configure(const ConfigType& aConfig, ErrorResult& aRv);
 
-  MOZ_CAN_RUN_SCRIPT
   void Decode(InputType& aInput, ErrorResult& aRv);
 
-  MOZ_CAN_RUN_SCRIPT
   already_AddRefed<Promise> Flush(ErrorResult& aRv);
 
-  MOZ_CAN_RUN_SCRIPT
   void Reset(ErrorResult& aRv);
 
-  MOZ_CAN_RUN_SCRIPT
   void Close(ErrorResult& aRv);
 
   /* Type conversion functions for the Decoder implementation */
@@ -166,12 +161,9 @@ class DecoderTemplate : public DOMEventTargetHelper {
     NS_ASSERT_OWNINGTHREAD(DecoderTemplate);
   }
 
-  MOZ_CAN_RUN_SCRIPT
   Result<Ok, nsresult> ResetInternal(const nsresult& aResult);
   // Calling this method calls the error callback synchronously.
-  MOZ_CAN_RUN_SCRIPT
   void CloseInternal(const nsresult& aResult);
-  MOZ_CAN_RUN_SCRIPT
   // Calling this method doesn't call the error calback.
   Result<Ok, nsresult> CloseInternalWithAbort();
 
@@ -180,45 +172,37 @@ class DecoderTemplate : public DOMEventTargetHelper {
       const nsTArray<RefPtr<MediaData>>&& aData);
 
   class CloseRunnable;
-  MOZ_CAN_RUN_SCRIPT
   // If aPromise is non-NULL, it would be rejected with aResult before close.
   void QueueCloseTask(const char* aName, const nsresult& aResult,
                       already_AddRefed<Promise> aPromise = nullptr);
 
   class OutputRunnable;
-  MOZ_CAN_RUN_SCRIPT
   // If aPromise is non-NULL, it would be resolved after output.
   void QueueOutputTask(const char* aName, const nsACString& aLabel,
                        nsTArray<RefPtr<MediaData>>&& aData,
                        already_AddRefed<Promise> aPromise = nullptr);
 
-  MOZ_CAN_RUN_SCRIPT
   void ScheduleDequeueEventIfNeeded();
   nsresult FireEvent(nsAtom* aTypeWithOn, const nsAString& aEventType);
 
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   void ProcessControlMessageQueue();
   void CancelPendingControlMessages(const nsresult& aResult);
 
   // Queue a task to the control thread. This is to be used when a task needs to
   // perform multiple steps.
   template <typename Func>
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY void QueueATask(const char* aName, Func&& aSteps);
+  void QueueATask(const char* aName, Func&& aSteps);
 
-  MOZ_CAN_RUN_SCRIPT
   MessageProcessedResult ProcessConfigureMessage(
       UniquePtr<ControlMessage>& aMessage);
 
-  MOZ_CAN_RUN_SCRIPT
   MessageProcessedResult ProcessDecodeMessage(
       UniquePtr<ControlMessage>& aMessage);
 
-  MOZ_CAN_RUN_SCRIPT
   MessageProcessedResult ProcessFlushMessage(
       UniquePtr<ControlMessage>& aMessage);
 
   // Returns true when mAgent can be created.
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   bool CreateDecoderAgent(DecoderAgent::Id aId,
                           UniquePtr<ConfigTypeInternal>&& aConfig,
                           UniquePtr<TrackInfo>&& aInfo);
