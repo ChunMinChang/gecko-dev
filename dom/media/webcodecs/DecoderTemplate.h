@@ -185,6 +185,11 @@ class DecoderTemplate : public DOMEventTargetHelper {
                       already_AddRefed<Promise> aPromise = nullptr);
 
   MOZ_CAN_RUN_SCRIPT
+  // If aPromise is non-NULL, it would be resolved after output.
+  void QueueOutputTask(const char* aName, nsTArray<RefPtr<MediaData>>&& aData,
+                       already_AddRefed<Promise> aPromise = nullptr);
+
+  MOZ_CAN_RUN_SCRIPT
   void ScheduleDequeueEventIfNeeded();
   nsresult FireEvent(nsAtom* aTypeWithOn, const nsAString& aEventType);
 

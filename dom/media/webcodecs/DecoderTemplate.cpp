@@ -353,6 +353,20 @@ void DecoderTemplate<DecoderType>::QueueCloseTask(
 }
 
 template <typename DecoderType>
+void DecoderTemplate<DecoderType>::QueueOutputTask(
+    const char* aName, nsTArray<RefPtr<MediaData>>&& aData,
+    already_AddRefed<Promise> aPromise) {
+  AssertIsOnOwningThread();
+  QueueATask(aName, [self = RefPtr{this}, data = std::move(aData),
+                     promise = RefPtr{aPromise}]() MOZ_CAN_RUN_SCRIPT {
+    self->OutputDecodedData(std::move(data));
+    if (promise) {
+      promise->MaybeResolveWithUndefined();
+    }
+  });
+}
+
+template <typename DecoderType>
 void DecoderTemplate<DecoderType>::ScheduleDequeueEventIfNeeded() {
   AssertIsOnOwningThread();
 
@@ -644,12 +658,8 @@ MessageProcessedResult DecoderTemplate<DecoderType>::ProcessDecodeMessage(
                      LOGV("%s %p, schedule %zu decoded data output for %s",
                           DecoderType::Name.get(), self.get(), data.Length(),
                           msgStr.get());
-                     self->QueueATask(
-                         "Output Decoded Data",
-                         [self = RefPtr{self}, data = std::move(data)]()
-                             MOZ_CAN_RUN_SCRIPT_BOUNDARY {
-                               self->OutputDecodedData(std::move(data));
-                             });
+                     self->QueueOutputTask("Output Decoded Data",
+                                           std::move(data));
                    }
                    self->ProcessControlMessageQueue();
                  })
@@ -739,14 +749,8 @@ MessageProcessedResult DecoderTemplate<DecoderType>::ProcessFlushMessage(
                          msgStr.get());
                    }
 
-                   RefPtr<Promise> promise = msg->TakePromise();
-                   self->QueueATask(
-                       "Flush: output decoding data task",
-                       [self = RefPtr{self}, promise, data = std::move(data)]()
-                           MOZ_CAN_RUN_SCRIPT_BOUNDARY {
-                             self->OutputDecodedData(std::move(data));
-                             promise->MaybeResolveWithUndefined();
-                           });
+                   self->QueueOutputTask("Flush: output decoding data task",
+                                         std::move(data), msg->TakePromise());
                    self->mProcessingMessage.reset();
                    self->ProcessControlMessageQueue();
                  })
