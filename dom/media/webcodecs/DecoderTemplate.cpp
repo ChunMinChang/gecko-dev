@@ -332,24 +332,50 @@ void DecoderTemplate<DecoderType>::OutputDecodedData(
   }
 }
 
+// TODO: Replace DiscardableRunnable w/ Runnable.
+template <typename DecoderType>
+class DecoderTemplate<DecoderType>::CloseRunnable final
+    : public DiscardableRunnable {
+ public:
+  CloseRunnable(Self* aDecoder, const char* aName, const nsresult& aError,
+                already_AddRefed<Promise> aPromise)
+      : DiscardableRunnable(aName),
+        mDecoder(aDecoder),
+        mError(aError),
+        mPromise(aPromise) {
+    MOZ_ASSERT(mDecoder);
+  }
+  ~CloseRunnable() = default;
+
+  // MOZ_CAN_RUN_SCRIPT_BOUNDARY until Runnable::Run is MOZ_CAN_RUN_SCRIPT.
+  // See bug 1535398.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHOD Run() override {
+    if (mPromise) {
+      nsCString err;
+      GetErrorName(mError, err);
+      LOGE("%s %p, rejects promise with: %s before close",
+           DecoderType::Name.get(), mDecoder.get(), err.get());
+      mPromise->MaybeReject(mError);
+    }
+
+    MOZ_ASSERT(mDecoder->mState != CodecState::Closed);
+    mDecoder->CloseInternal(mError);
+
+    return NS_OK;
+  }
+
+ private:
+  RefPtr<Self> mDecoder;
+  const nsresult mError;
+  RefPtr<Promise> mPromise;
+};
+
 template <typename DecoderType>
 void DecoderTemplate<DecoderType>::QueueCloseTask(
     const char* aName, const nsresult& aResult,
     already_AddRefed<Promise> aPromise) {
-  AssertIsOnOwningThread();
-  QueueATask(aName, [self = RefPtr{this}, result = aResult,
-                     promise = RefPtr{aPromise}]() MOZ_CAN_RUN_SCRIPT {
-    if (promise) {
-      nsCString err;
-      GetErrorName(result, err);
-      LOGE("%s %p, rejects promise with: %s before close",
-           DecoderType::Name.get(), self.get(), err.get());
-      promise->MaybeReject(result);
-    }
-
-    MOZ_ASSERT(self->mState != CodecState::Closed);
-    self->CloseInternal(result);
-  });
+  MOZ_ALWAYS_SUCCEEDS(NS_DispatchToCurrentThread(
+      MakeAndAddRef<CloseRunnable>(this, aName, aResult, std::move(aPromise))));
 }
 
 template <typename DecoderType>

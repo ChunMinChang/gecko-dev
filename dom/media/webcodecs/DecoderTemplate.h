@@ -179,6 +179,7 @@ class DecoderTemplate : public DOMEventTargetHelper {
   MOZ_CAN_RUN_SCRIPT void OutputDecodedData(
       const nsTArray<RefPtr<MediaData>>&& aData);
 
+  class CloseRunnable;
   MOZ_CAN_RUN_SCRIPT
   // If aPromise is non-NULL, it would be rejected with aResult before close.
   void QueueCloseTask(const char* aName, const nsresult& aResult,
