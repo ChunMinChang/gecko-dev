@@ -185,9 +185,11 @@ class DecoderTemplate : public DOMEventTargetHelper {
   void QueueCloseTask(const char* aName, const nsresult& aResult,
                       already_AddRefed<Promise> aPromise = nullptr);
 
+  class OutputRunnable;
   MOZ_CAN_RUN_SCRIPT
   // If aPromise is non-NULL, it would be resolved after output.
-  void QueueOutputTask(const char* aName, nsTArray<RefPtr<MediaData>>&& aData,
+  void QueueOutputTask(const char* aName, const nsACString& aLabel,
+                       nsTArray<RefPtr<MediaData>>&& aData,
                        already_AddRefed<Promise> aPromise = nullptr);
 
   MOZ_CAN_RUN_SCRIPT

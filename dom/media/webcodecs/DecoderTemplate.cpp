@@ -378,18 +378,72 @@ void DecoderTemplate<DecoderType>::QueueCloseTask(
       MakeAndAddRef<CloseRunnable>(this, aName, aResult, std::move(aPromise))));
 }
 
+// TODO: Replace DiscardableRunnable w/ Runnable.
+template <typename DecoderType>
+class DecoderTemplate<DecoderType>::OutputRunnable final
+    : public DiscardableRunnable {
+ public:
+  OutputRunnable(Self* aDecoder, const char* aName, DecoderAgent::Id aAgentId,
+                 const nsACString& aLabel, nsTArray<RefPtr<MediaData>>&& aData,
+                 already_AddRefed<Promise> aPromise)
+      : DiscardableRunnable(aName),
+        mDecoder(aDecoder),
+        mAgentId(aAgentId),
+        mLabel(aLabel),
+        mData(std::move(aData)),
+        mPromise(aPromise) {
+    MOZ_ASSERT(mDecoder);
+  }
+  ~OutputRunnable() = default;
+
+  // MOZ_CAN_RUN_SCRIPT_BOUNDARY until Runnable::Run is MOZ_CAN_RUN_SCRIPT.
+  // See bug 1535398.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHOD Run() override {
+    if (mDecoder->mState != CodecState::Configured) {
+      LOGV("%s %p has been %s. Discard %s-result for DecoderAgent #%d",
+           DecoderType::Name.get(), mDecoder.get(),
+           mDecoder->mState == CodecState::Closed ? "closed" : "reset",
+           mLabel.get(), mAgentId);
+      return NS_OK;
+    }
+
+    MOZ_ASSERT(mDecoder->mAgent);
+    if (mAgentId != mDecoder->mAgent->mId) {
+      LOGW(
+          "%s %p has been re-configured. Still yield %s-result for "
+          "DecoderAgent #%d",
+          DecoderType::Name.get(), mDecoder.get(), mLabel.get(), mAgentId);
+    }
+
+    LOGV("%s %p, yields %s-result for DecoderAgent #%d",
+         DecoderType::Name.get(), mDecoder.get(), mLabel.get(), mAgentId);
+    RefPtr<Self> d = std::move(mDecoder);
+    d->OutputDecodedData(std::move(mData));
+
+    // Resolve (flush's) promise if any.
+    if (mPromise) {
+      mPromise->MaybeResolveWithUndefined();
+    }
+
+    return NS_OK;
+  }
+
+ private:
+  RefPtr<Self> mDecoder;
+  const DecoderAgent::Id mAgentId;
+  const nsCString mLabel;
+  nsTArray<RefPtr<MediaData>> mData;
+  RefPtr<Promise> mPromise;
+};
+
 template <typename DecoderType>
 void DecoderTemplate<DecoderType>::QueueOutputTask(
-    const char* aName, nsTArray<RefPtr<MediaData>>&& aData,
-    already_AddRefed<Promise> aPromise) {
+    const char* aName, const nsACString& aLabel,
+    nsTArray<RefPtr<MediaData>>&& aData, already_AddRefed<Promise> aPromise) {
   AssertIsOnOwningThread();
-  QueueATask(aName, [self = RefPtr{this}, data = std::move(aData),
-                     promise = RefPtr{aPromise}]() MOZ_CAN_RUN_SCRIPT {
-    self->OutputDecodedData(std::move(data));
-    if (promise) {
-      promise->MaybeResolveWithUndefined();
-    }
-  });
+  MOZ_ALWAYS_SUCCEEDS(NS_DispatchToCurrentThread(
+      MakeAndAddRef<OutputRunnable>(this, aName, mAgent->mId, aLabel,
+                                    std::move(aData), std::move(aPromise))));
 }
 
 template <typename DecoderType>
@@ -684,7 +738,7 @@ MessageProcessedResult DecoderTemplate<DecoderType>::ProcessDecodeMessage(
                      LOGV("%s %p, schedule %zu decoded data output for %s",
                           DecoderType::Name.get(), self.get(), data.Length(),
                           msgStr.get());
-                     self->QueueOutputTask("Output Decoded Data",
+                     self->QueueOutputTask("Output Decoded Data", msgStr,
                                            std::move(data));
                    }
                    self->ProcessControlMessageQueue();
@@ -776,7 +830,8 @@ MessageProcessedResult DecoderTemplate<DecoderType>::ProcessFlushMessage(
                    }
 
                    self->QueueOutputTask("Flush: output decoding data task",
-                                         std::move(data), msg->TakePromise());
+                                         msgStr, std::move(data),
+                                         msg->TakePromise());
                    self->mProcessingMessage.reset();
                    self->ProcessControlMessageQueue();
                  })
