@@ -257,8 +257,8 @@ class VideoFrame final : public nsISupports, public nsWrapperCache {
   VideoColorSpaceInit mColorSpace;
 
   // The following are used to help monitoring mResource release.
-  UniquePtr<media::ShutdownBlockingTicket> mShutdownBlocker;
-  RefPtr<StrongWorkerRef> mWorkerRef;
+  UniquePtr<media::ShutdownBlockingTicket> mShutdownBlocker = nullptr;
+  RefPtr<WeakWorkerRef> mWorkerRef = nullptr;
 };
 
 }  // namespace mozilla::dom

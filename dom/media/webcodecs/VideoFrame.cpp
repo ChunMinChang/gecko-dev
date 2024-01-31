@@ -1880,34 +1880,31 @@ void VideoFrame::StartResorceAutoClose() {
 
   LOG("VideoFrame %p, start monitoring resource release", this);
 
-  if (!NS_IsMainThread()) {
-    if (WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate()) {
-      // Clean up all the resources when the worker is going away.
-      mWorkerRef = StrongWorkerRef::Create(
-          workerPrivate, "VideoFrame::CreateResorceReleaseMonitor",
-          [self = RefPtr{this}]() {
-            LOG("VideoFrame %p, worker is going away", self.get());
+  if (NS_IsMainThread()) {
+    mShutdownBlocker = media::ShutdownBlockingTicket::Create(
+        u"VideoFrame::mShutdownBlocker"_ns,
+        NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__);
+    if (mShutdownBlocker) {
+      mShutdownBlocker->ShutdownPromise()->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [self = RefPtr{this}](bool /* aUnUsed*/) {
+            LOG("VideoFrame %p get shutdown notification", self.get());
             self->CloseIfNeeded();
+          },
+          [self = RefPtr{this}](bool /* aUnUsed*/) {
+            LOG("VideoFrame %p removes shutdown-blocker before getting "
+                "shutdown "
+                "notification",
+                self.get());
           });
     }
+  } else if (WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate()) {
+    // Clean up all the resources when the worker is going away.
+    mWorkerRef = WeakWorkerRef::Create(workerPrivate, [self = RefPtr{this}]() {
+      LOG("VideoFrame %p, worker is going away", self.get());
+      self->CloseIfNeeded();
+    });
   }
-
-  mShutdownBlocker = media::ShutdownBlockingTicket::Create(
-      u"VideoFrame::mShutdownBlocker"_ns,
-      NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__);
-
-  // Pass mWorkerRef to shutdown callback to ensure the worker is alive.
-  mShutdownBlocker->ShutdownPromise()->Then(
-      GetCurrentSerialEventTarget(), __func__,
-      [self = RefPtr{this}, ref = mWorkerRef](bool /* aUnUsed*/) {
-        LOG("VideoFrame %p get shutdown notification", self.get());
-        self->CloseIfNeeded();
-      },
-      [self = RefPtr{this}, ref = mWorkerRef](bool /* aUnUsed*/) {
-        LOG("VideoFrame %p removes shutdown-blocker before getting shutdown "
-            "notification",
-            self.get());
-      });
 }
 
 void VideoFrame::StopResorceAutoClose() {
