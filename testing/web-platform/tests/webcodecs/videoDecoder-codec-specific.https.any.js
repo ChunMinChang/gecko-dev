@@ -556,6 +556,37 @@ promise_test(async t => {
   const callbacks = {};
   const decoder = createVideoDecoder(t, callbacks);
 
+  decoder.configure(CONFIG);
+  decoder.decode(CHUNKS[0]);
+  const flushDone = decoder.flush();
+  let flushDoneInCallback;
+
+  // Wait for the first output, then reset.
+  await new Promise(resolve => {
+    callbacks.output = frame => {
+      decoder.reset();
+      frame.close();
+
+      decoder.configure(CONFIG);
+      decoder.decode(CHUNKS[0]);
+      decoder.decode(createCorruptChunk(1));
+      flushDoneInCallback = decoder.flush();
+      callbacks.output = frame => { frame.close(); };
+
+      resolve();
+    };
+  });
+
+  // Flush should have been synchronously rejected.
+  await promise_rejects_dom(t, 'AbortError', flushDone);
+  await promise_rejects_dom(t, 'EncodingError', flushDoneInCallback);
+}, 'Test new flush after reset in flush callback');
+
+promise_test(async t => {
+  await checkImplements();
+  const callbacks = {};
+  const decoder = createVideoDecoder(t, callbacks);
+
   decoder.configure({...CONFIG, optimizeForLatency: true});
   decoder.decode(CHUNKS[0]);
 
