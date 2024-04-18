@@ -16,6 +16,27 @@
 
 namespace mozilla {
 
+// Borrow from ImageToI420.
+// TODO: If MFTEncoder supports I420 format, we can call ConvertToI420 directly
+// without using this function.
+static already_AddRefed<gfx::SourceSurface> GetSourceSurface(
+    layers::Image* aImage) {
+  if (!aImage->AsGLImage() || NS_IsMainThread()) {
+    return aImage->GetAsSourceSurface();
+  }
+
+  // GLImage::GetAsSourceSurface() only supports main thread
+  RefPtr<gfx::SourceSurface> surf;
+  NS_DispatchAndSpinEventLoopUntilComplete(
+      "WMFMediaDataEncoder::GLImage::GetSourceSurface"_ns,
+      mozilla::GetMainThreadSerialEventTarget(),
+      NS_NewRunnableFunction(
+          "WMFMediaDataEncoder::GLImage::GetSourceSurface",
+          [&aImage, &surf]() { surf = aImage->GetAsSourceSurface(); }));
+
+  return surf.forget();
+}
+
 class WMFMediaDataEncoder final : public MediaDataEncoder {
  public:
   WMFMediaDataEncoder(const EncoderConfig& aConfig,
@@ -201,46 +222,113 @@ class WMFMediaDataEncoder final : public MediaDataEncoder {
     AssertOnTaskQueue();
     MOZ_ASSERT(mEncoder);
 
-    const layers::PlanarYCbCrImage* image = aData->mImage->AsPlanarYCbCrImage();
-    // TODO: Take care non planar Y-Cb-Cr image (Bug 1881647).
-    NS_ENSURE_TRUE(image, nullptr);
+    if (const layers::PlanarYCbCrImage* image =
+            aData->mImage->AsPlanarYCbCrImage()) {
+      const layers::PlanarYCbCrData* yuv = image->GetData();
+      auto ySize = yuv->YDataSize();
+      auto cbcrSize = yuv->CbCrDataSize();
+      size_t yLength = yuv->mYStride * ySize.height;
+      size_t length = yLength + (yuv->mCbCrStride * cbcrSize.height * 2);
 
-    const layers::PlanarYCbCrData* yuv = image->GetData();
-    auto ySize = yuv->YDataSize();
-    auto cbcrSize = yuv->CbCrDataSize();
-    size_t yLength = yuv->mYStride * ySize.height;
-    size_t length = yLength + (yuv->mCbCrStride * cbcrSize.height * 2);
+      RefPtr<IMFSample> input;
+      HRESULT hr = mEncoder->CreateInputSample(&input, length);
+      NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
 
-    RefPtr<IMFSample> input;
-    HRESULT hr = mEncoder->CreateInputSample(&input, length);
-    NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
+      RefPtr<IMFMediaBuffer> buffer;
+      hr = input->GetBufferByIndex(0, getter_AddRefs(buffer));
+      NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
 
-    RefPtr<IMFMediaBuffer> buffer;
-    hr = input->GetBufferByIndex(0, getter_AddRefs(buffer));
-    NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
+      hr = buffer->SetCurrentLength(length);
+      NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
 
-    hr = buffer->SetCurrentLength(length);
-    NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
+      LockBuffer lockBuffer(buffer);
+      NS_ENSURE_TRUE(SUCCEEDED(lockBuffer.Result()), nullptr);
 
-    LockBuffer lockBuffer(buffer);
-    NS_ENSURE_TRUE(SUCCEEDED(lockBuffer.Result()), nullptr);
+      // TODO: Allow setting MFVideoFormat_I420 or MFVideoFormat_NV12 in
+      //       MFTEncoder to minimize the conversion.
+      // TODO: Take care non I420 image.
+      bool ok =
+          libyuv::I420ToNV12(yuv->mYChannel, yuv->mYStride, yuv->mCbChannel,
+                             yuv->mCbCrStride, yuv->mCrChannel,
+                             yuv->mCbCrStride, lockBuffer.Data(), yuv->mYStride,
+                             lockBuffer.Data() + yLength, yuv->mCbCrStride * 2,
+                             ySize.width, ySize.height) == 0;
+      NS_ENSURE_TRUE(ok, nullptr);
 
-    // TODO: Take care non I420 image (Bug 1881647).
-    bool ok = libyuv::I420ToNV12(
-                  yuv->mYChannel, yuv->mYStride, yuv->mCbChannel,
-                  yuv->mCbCrStride, yuv->mCrChannel, yuv->mCbCrStride,
-                  lockBuffer.Data(), yuv->mYStride, lockBuffer.Data() + yLength,
-                  yuv->mCbCrStride * 2, ySize.width, ySize.height) == 0;
-    NS_ENSURE_TRUE(ok, nullptr);
+      hr = input->SetSampleTime(UsecsToHNs(aData->mTime.ToMicroseconds()));
+      NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
 
-    hr = input->SetSampleTime(UsecsToHNs(aData->mTime.ToMicroseconds()));
-    NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
+      hr = input->SetSampleDuration(
+          UsecsToHNs(aData->mDuration.ToMicroseconds()));
+      NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
 
-    hr =
-        input->SetSampleDuration(UsecsToHNs(aData->mDuration.ToMicroseconds()));
-    NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
+      return input.forget();
+    }
 
-    return input.forget();
+    if (RefPtr<gfx::SourceSurface> surface = GetSourceSurface(aData->mImage)) {
+      WMF_ENC_LOGD("ConvertToNV12InputSample, by SourceSurface");
+      RefPtr<gfx::DataSourceSurface> data = surface->GetDataSurface();
+      NS_ENSURE_TRUE(data, nullptr);
+
+      gfx::DataSourceSurface::ScopedMap map(data, gfx::DataSourceSurface::READ);
+      NS_ENSURE_TRUE(map.IsMapped(), nullptr);
+
+      const int32_t yStride = aData->mImage->GetSize().width;
+      const int32_t yHeight = aData->mImage->GetSize().height;
+      const int32_t uvStride = yStride;
+      // TODO: if height is an odd number?
+      const int32_t uvHeight = yHeight / 2;
+
+      CheckedInt<size_t> yLength(yStride);
+      yLength *= yHeight;
+      NS_ENSURE_TRUE(yLength.isValid(), nullptr);
+
+      CheckedInt<size_t> uvLength(uvStride);
+      uvLength *= uvHeight;
+      NS_ENSURE_TRUE(uvLength.isValid(), nullptr);
+
+      CheckedInt<size_t> length(yLength.value());
+      length += uvLength;
+      NS_ENSURE_TRUE(length.isValid(), nullptr);
+
+      RefPtr<IMFSample> input;
+      HRESULT hr = mEncoder->CreateInputSample(&input, length.value());
+      NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
+
+      RefPtr<IMFMediaBuffer> buffer;
+      hr = input->GetBufferByIndex(0, getter_AddRefs(buffer));
+      NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
+
+      hr = buffer->SetCurrentLength(length.value());
+      NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
+
+      LockBuffer lockBuffer(buffer);
+      NS_ENSURE_TRUE(SUCCEEDED(lockBuffer.Result()), nullptr);
+
+      gfx::SurfaceFormat fmt = surface->GetFormat();
+      if (fmt == gfx::SurfaceFormat::B8G8R8A8 ||
+          fmt == gfx::SurfaceFormat::B8G8R8X8) {
+        bool ok = libyuv::ARGBToNV12(static_cast<uint8_t*>(map.GetData()),
+                                     map.GetStride(), lockBuffer.Data(),
+                                     static_cast<int>(yStride),
+                                     lockBuffer.Data() + yLength.value(),
+                                     static_cast<int>(uvStride),
+                                     aData->mImage->GetSize().width,
+                                     aData->mImage->GetSize().height) == 0;
+        NS_ENSURE_TRUE(ok, nullptr);
+
+        hr = input->SetSampleTime(UsecsToHNs(aData->mTime.ToMicroseconds()));
+        NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
+
+        hr = input->SetSampleDuration(
+            UsecsToHNs(aData->mDuration.ToMicroseconds()));
+        NS_ENSURE_TRUE(SUCCEEDED(hr), nullptr);
+
+        return input.forget();
+      }
+    }
+
+    return nullptr;
   }
 
   RefPtr<EncodePromise> ProcessOutputSamples(
