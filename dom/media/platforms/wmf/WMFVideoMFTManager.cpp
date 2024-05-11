@@ -27,6 +27,7 @@
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/SyncRunnable.h"
 #include "mozilla/Telemetry.h"
+#include "mozilla/ToString.h"
 #include "mozilla/gfx/DeviceManagerDx.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/layers/LayersTypes.h"
@@ -995,7 +996,7 @@ nsCString WMFVideoMFTManager::GetDescriptionName() const {
   }();
 
   return nsPrintfCString("wmf %s codec %s video decoder - %s, %s",
-                         StreamTypeToString(mStreamType),
+                         ToString(mStreamType).c_str(),
                          hw ? "hardware" : "software", dxvaName, formatName);
 }
 nsCString WMFVideoMFTManager::GetCodecName() const {

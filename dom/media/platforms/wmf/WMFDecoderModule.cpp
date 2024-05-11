@@ -25,6 +25,7 @@
 #include "mozilla/StaticMutex.h"
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/SyncRunnable.h"
+#include "mozilla/ToString.h"
 #include "mozilla/WindowsVersion.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/mscom/EnsureMTA.h"
@@ -143,13 +144,13 @@ void WMFDecoderModule::Init(Config aConfig) {
       if (SUCCEEDED(hr)) {
         sSupportedTypes += type;
         WmfDecoderModuleMarkerAndLog("WMFInit Decoder Supported",
-                                     "%s is enabled", StreamTypeToString(type));
+                                     "%s is enabled", ToString(type).c_str());
       } else if (hr != E_FAIL) {
         // E_FAIL should be logged by CreateMFTDecoder. Skipping those codes
         // will help to keep the logs readable.
         WmfDecoderModuleMarkerAndLog("WMFInit Decoder Failed",
                                      "%s failed with code 0x%lx",
-                                     StreamTypeToString(type), hr);
+                                     ToString(type).c_str(), hr);
         if (hr == WINCODEC_ERR_COMPONENTNOTFOUND &&
             type == WMFStreamType::AV1) {
           WmfDecoderModuleMarkerAndLog("No AV1 extension",
@@ -222,7 +223,7 @@ HRESULT WMFDecoderModule::CreateMFTDecoder(const WMFStreamType& aType,
       if (!sDXVAEnabled) {
         WmfDecoderModuleMarkerAndLog("CreateMFTDecoder, VPx Disabled",
                                      "%s MFT requires DXVA",
-                                     StreamTypeToString(aType));
+                                     ToString(aType).c_str());
         return E_FAIL;
       }
 
