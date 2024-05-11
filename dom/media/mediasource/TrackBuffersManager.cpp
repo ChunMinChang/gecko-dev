@@ -22,6 +22,7 @@
 #include "mozilla/ProfilerLabels.h"
 #include "mozilla/ProfilerMarkers.h"
 #include "mozilla/StaticPrefs_media.h"
+#include "mozilla/ToString.h"
 #include "nsMimeTypes.h"
 
 extern mozilla::LogModule* GetMediaSourceLog();
@@ -52,19 +53,6 @@ using media::TimeIntervals;
 using media::TimeUnit;
 using AppendBufferResult = SourceBufferTask::AppendBufferResult;
 using AppendState = SourceBufferAttributes::AppendState;
-
-static const char* AppendStateToStr(AppendState aState) {
-  switch (aState) {
-    case AppendState::WAITING_FOR_SEGMENT:
-      return "WAITING_FOR_SEGMENT";
-    case AppendState::PARSING_INIT_SEGMENT:
-      return "PARSING_INIT_SEGMENT";
-    case AppendState::PARSING_MEDIA_SEGMENT:
-      return "PARSING_MEDIA_SEGMENT";
-    default:
-      return "IMPOSSIBLE";
-  }
-}
 
 static Atomic<uint32_t> sStreamSourceID(0u);
 
@@ -2587,8 +2575,8 @@ TrackBuffersManager::GetTracksList() const {
 
 void TrackBuffersManager::SetAppendState(AppendState aAppendState) {
   MSE_DEBUG("AppendState changed from %s to %s",
-            AppendStateToStr(mSourceBufferAttributes->GetAppendState()),
-            AppendStateToStr(aAppendState));
+            ToString(mSourceBufferAttributes->GetAppendState()).c_str(),
+            ToString(aAppendState).c_str());
   mSourceBufferAttributes->SetAppendState(aAppendState);
 }
 
