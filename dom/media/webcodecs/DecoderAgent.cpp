@@ -12,6 +12,7 @@
 #include "VideoUtils.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/Logging.h"
+#include "mozilla/ToString.h"
 #include "mozilla/layers/ImageBridgeChild.h"
 #include "nsThreadUtils.h"
 
@@ -453,33 +454,10 @@ void DecoderAgent::SetState(State aState) {
     return false;
   };
 
-  auto stateToString = [](State aState) -> const char* {
-    switch (aState) {
-      case State::Unconfigured:
-        return "Unconfigured";
-      case State::Configuring:
-        return "Configuring";
-      case State::Configured:
-        return "Configured";
-      case State::Decoding:
-        return "Decoding";
-      case State::Flushing:
-        return "Flushing";
-      case State::ShuttingDown:
-        return "ShuttingDown";
-      case State::Error:
-        return "Error";
-      default:
-        break;
-    }
-    MOZ_ASSERT_UNREACHABLE("Unhandled state type");
-    return "Unknown";
-  };
-
   DebugOnly<bool> isValid = validateStateTransition(mState, aState);
   MOZ_ASSERT(isValid);
   LOG("DecoderAgent #%d (%p) state change: %s -> %s", mId, this,
-      stateToString(mState), stateToString(aState));
+      ToString(mState).c_str(), ToString(aState).c_str());
   mState = aState;
 }
 
