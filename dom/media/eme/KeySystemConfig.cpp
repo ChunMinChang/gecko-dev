@@ -333,17 +333,12 @@ nsString KeySystemConfig::GetDebugInfo() const {
     }
   }
   debugInfo.AppendLiteral("]");
-  debugInfo.AppendASCII(
-      nsPrintfCString(" persistent=%s", ToString(mPersistentState).c_str())
-          .get());
-  debugInfo.AppendASCII(
-      nsPrintfCString(" distinctive=%s",
-                      ToString(mDistinctiveIdentifier).c_str())
-          .get());
+  debugInfo.AppendPrintf(" persistent=%s", ToString(mPersistentState).c_str());
+  debugInfo.AppendPrintf(" distinctive=%s",
+                         ToString(mDistinctiveIdentifier).c_str());
   debugInfo.AppendLiteral(" sessionType=[");
   for (size_t idx = 0; idx < mSessionTypes.Length(); idx++) {
-    debugInfo.AppendASCII(
-        nsPrintfCString("%s", ToString(mSessionTypes[idx]).c_str()).get());
+    debugInfo.AppendPrintf("%s", ToString(mSessionTypes[idx]).c_str());
     if (idx + 1 < mSessionTypes.Length()) {
       debugInfo.AppendLiteral(",");
     }
@@ -369,8 +364,7 @@ nsString KeySystemConfig::GetDebugInfo() const {
   debugInfo.AppendLiteral(" WEBM={");
   debugInfo.Append(NS_ConvertUTF8toUTF16(mWebM.GetDebugInfo()));
   debugInfo.AppendLiteral("}");
-  debugInfo.AppendASCII(
-      nsPrintfCString(" isHDCP22Compatible=%d", mIsHDCP22Compatible));
+  debugInfo.AppendPrintf(" isHDCP22Compatible=%d", mIsHDCP22Compatible);
   return debugInfo;
 }
 
