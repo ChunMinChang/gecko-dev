@@ -5,6 +5,7 @@
 #include "MediaPlaybackStatus.h"
 
 #include "MediaControlUtils.h"
+#include "mozilla/ToString.h"
 
 namespace mozilla::dom {
 
@@ -16,7 +17,7 @@ namespace mozilla::dom {
 void MediaPlaybackStatus::UpdateMediaPlaybackState(uint64_t aContextId,
                                                    MediaPlaybackState aState) {
   LOG("Update playback state '%s' for context %" PRIu64,
-      ToMediaPlaybackStateStr(aState), aContextId);
+      ToString(aState).c_str(), aContextId);
   MOZ_ASSERT(NS_IsMainThread());
 
   ContextMediaInfo& info = GetNotNullContextInfo(aContextId);

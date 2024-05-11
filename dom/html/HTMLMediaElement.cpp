@@ -69,6 +69,7 @@
 #include "mozilla/Sprintf.h"
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/Telemetry.h"
+#include "mozilla/ToString.h"
 #include "mozilla/dom/AudioTrack.h"
 #include "mozilla/dom/AudioTrackList.h"
 #include "mozilla/dom/BlobURLProtocolHandler.h"
@@ -564,8 +565,7 @@ class HTMLMediaElement::MediaControlKeyListener final
     MOZ_ASSERT(NS_IsMainThread());
     MOZ_ASSERT(mControlAgent);
     MEDIACONTROL_LOG("NotifyMediaState from state='%s' to state='%s'",
-                     ToMediaPlaybackStateStr(mState),
-                     ToMediaPlaybackStateStr(aState));
+                     ToString(mState).c_str(), ToString(aState).c_str());
     MOZ_ASSERT(mState != aState, "Should not notify same state again!");
     mState = aState;
     mControlAgent->NotifyMediaPlaybackChanged(mOwnerBrowsingContextId, mState);
