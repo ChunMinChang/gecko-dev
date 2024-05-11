@@ -7,6 +7,7 @@
 #include "mozilla/dom/TextTrack.h"
 
 #include "mozilla/AsyncEventDispatcher.h"
+#include "mozilla/ToString.h"
 #include "mozilla/dom/HTMLMediaElement.h"
 #include "mozilla/dom/HTMLTrackElement.h"
 #include "mozilla/dom/TextTrackBinding.h"
@@ -23,22 +24,6 @@ extern mozilla::LazyLogModule gTextTrackLog;
           ("TextTrack=%p, " msg, this, ##__VA_ARGS__))
 
 namespace mozilla::dom {
-
-static const char* ToReadyStateStr(const TextTrackReadyState aState) {
-  switch (aState) {
-    case TextTrackReadyState::NotLoaded:
-      return "NotLoaded";
-    case TextTrackReadyState::Loading:
-      return "Loading";
-    case TextTrackReadyState::Loaded:
-      return "Loaded";
-    case TextTrackReadyState::FailedToLoad:
-      return "FailedToLoad";
-    default:
-      MOZ_ASSERT_UNREACHABLE("Invalid state.");
-  }
-  return "Unknown";
-}
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(TextTrack, DOMEventTargetHelper, mCueList,
                                    mActiveCueList, mTextTrackList,
@@ -195,7 +180,7 @@ void TextTrack::GetActiveCueArray(nsTArray<RefPtr<TextTrackCue> >& aCues) {
 TextTrackReadyState TextTrack::ReadyState() const { return mReadyState; }
 
 void TextTrack::SetReadyState(TextTrackReadyState aState) {
-  WEBVTT_LOG("SetReadyState=%s", ToReadyStateStr(aState));
+  WEBVTT_LOG("SetReadyState=%s", ToString(aState).c_str());
   mReadyState = aState;
   HTMLMediaElement* mediaElement = GetMediaElement();
   if (mediaElement && (mReadyState == TextTrackReadyState::Loaded ||
