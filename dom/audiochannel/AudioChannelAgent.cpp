@@ -6,6 +6,7 @@
 
 #include "AudioChannelService.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ToString.h"
 #include "mozilla/dom/Document.h"
 #include "nsContentUtils.h"
 #include "nsPIDOMWindow.h"
@@ -158,8 +159,8 @@ AudioChannelAgent::NotifyStartedPlaying(uint8_t aAudible) {
   MOZ_LOG(AudioChannelService::GetAudioChannelLog(), LogLevel::Debug,
           ("AudioChannelAgent, NotifyStartedPlaying, this = %p, audible = %s\n",
            this,
-           AudibleStateToStr(
-               static_cast<AudioChannelService::AudibleState>(aAudible))));
+           ToString(static_cast<AudioChannelService::AudibleState>(aAudible))
+               .c_str()));
 
   mIsRegToService = true;
   return NS_OK;
@@ -190,8 +191,8 @@ AudioChannelAgent::NotifyStartedAudible(uint8_t aAudible, uint32_t aReason) {
       ("AudioChannelAgent, NotifyStartedAudible, this = %p, "
        "audible = %s, reason = %s\n",
        this,
-       AudibleStateToStr(
-           static_cast<AudioChannelService::AudibleState>(aAudible)),
+       ToString(static_cast<AudioChannelService::AudibleState>(aAudible))
+           .c_str(),
        AudibleChangedReasonToStr(
            static_cast<AudioChannelService::AudibleChangedReasons>(aReason))));
 
