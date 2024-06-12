@@ -14,6 +14,7 @@
 #include "mozilla/Atomics.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/ProfilerLabels.h"
+#include "mozilla/ToString.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/StaticMutex.h"
 #include "mozilla/glean/GleanMetrics.h"
@@ -505,7 +506,7 @@ void ExternalEngineStateMachine::OnSeekRejected(
   state->mSeekRequest.Complete();
   if (aReject.mError == NS_ERROR_DOM_MEDIA_WAITING_FOR_DATA) {
     LOG("OnSeekRejected reason=WAITING_FOR_DATA type=%s",
-        MediaData::TypeToStr(aReject.mType));
+        ToString(aReject.mType).c_str());
     MOZ_ASSERT_IF(aReject.mType == MediaData::Type::AUDIO_DATA,
                   !IsRequestingAudioData());
     MOZ_ASSERT_IF(aReject.mType == MediaData::Type::VIDEO_DATA,

@@ -38,6 +38,7 @@
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/TaskQueue.h"
 #include "mozilla/Telemetry.h"
+#include "mozilla/ToString.h"
 #include "nsIMemoryReporter.h"
 #include "nsPrintfCString.h"
 #include "nsTArray.h"
@@ -934,7 +935,7 @@ class MediaDecoderStateMachine::LoopingDecodingState
              ? mMaster->mVideoTrackDecodedDuration->ToMicroseconds()
              : 0,
          mDataWaitingTimestampAdjustment
-             ? MediaData::TypeToStr(mDataWaitingTimestampAdjustment->mType)
+             ? ToString(mDataWaitingTimestampAdjustment->mType).c_str()
              : "none");
     if (ShouldDiscardLoopedData(MediaData::Type::AUDIO_DATA)) {
       DiscardLoopedData(MediaData::Type::AUDIO_DATA);
@@ -1485,7 +1486,7 @@ class MediaDecoderStateMachine::LoopingDecodingState
     MOZ_ASSERT(!mDataWaitingTimestampAdjustment);
     mDataWaitingTimestampAdjustment = aData;
     SLOG("put %s [%" PRId64 ",%" PRId64 "] on waiting",
-         MediaData::TypeToStr(aData->mType), aData->mTime.ToMicroseconds(),
+         ToString(aData->mType).c_str(), aData->mTime.ToMicroseconds(),
          aData->GetEndTime().ToMicroseconds());
     MaybeStopPrerolling();
   }
@@ -1999,7 +2000,7 @@ class MediaDecoderStateMachine::AccurateSeekingState
 
     if (aReject.mError == NS_ERROR_DOM_MEDIA_WAITING_FOR_DATA) {
       SLOG("OnSeekRejected reason=WAITING_FOR_DATA type=%s",
-           MediaData::TypeToStr(aReject.mType));
+           ToString(aReject.mType).c_str());
       MOZ_ASSERT_IF(aReject.mType == MediaData::Type::AUDIO_DATA,
                     !mMaster->IsRequestingAudioData());
       MOZ_ASSERT_IF(aReject.mType == MediaData::Type::VIDEO_DATA,
