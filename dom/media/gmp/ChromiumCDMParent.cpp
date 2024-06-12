@@ -19,6 +19,7 @@
 #include "content_decryption_module.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/StaticPrefs_media.h"
+#include "mozilla/ToString.h"
 #include "mozilla/Unused.h"
 #include "mozilla/dom/MediaKeyMessageEventBinding.h"
 #include "mozilla/gmp/GMPTypes.h"
@@ -1059,7 +1060,7 @@ ipc::IPCResult ChromiumCDMParent::RecvDecodeFailed(const uint32_t& aStatus) {
           RESULT_DETAIL(
               "ChromiumCDMParent::RecvDecodeFailed with status %s (%" PRIu32
               ")",
-              CdmStatusToString(aStatus), aStatus)),
+              mozilla::ToString(cdm::Status(aStatus)).c_str(), aStatus)),
       __func__);
   return IPC_OK();
 }
@@ -1173,7 +1174,8 @@ ipc::IPCResult ChromiumCDMParent::RecvOnDecoderInitDone(
         MediaResult(
             NS_ERROR_DOM_MEDIA_FATAL_ERR,
             RESULT_DETAIL("CDM init decode failed with status %s (%" PRIu32 ")",
-                          CdmStatusToString(aStatus), aStatus)),
+                          mozilla::ToString(cdm::Status(aStatus)).c_str(),
+                          aStatus)),
         __func__);
   }
   return IPC_OK();
