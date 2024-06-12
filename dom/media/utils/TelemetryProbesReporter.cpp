@@ -13,6 +13,7 @@
 #include "mozilla/Logging.h"
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/Telemetry.h"
+#include "mozilla/ToString.h"
 #include "mozilla/glean/GleanMetrics.h"
 #include "nsThreadUtils.h"
 
@@ -23,20 +24,6 @@ LazyLogModule gTelemetryProbesReporterLog("TelemetryProbesReporter");
   MOZ_LOG(gTelemetryProbesReporterLog, LogLevel::Debug, \
           ("TelemetryProbesReporter=%p, " msg, this, ##__VA_ARGS__))
 
-static const char* ToVisibilityStr(
-    TelemetryProbesReporter::Visibility aVisibility) {
-  switch (aVisibility) {
-    case TelemetryProbesReporter::Visibility::eVisible:
-      return "visible";
-    case TelemetryProbesReporter::Visibility::eInvisible:
-      return "invisible";
-    case TelemetryProbesReporter::Visibility::eInitial:
-      return "initial";
-    default:
-      MOZ_ASSERT_UNREACHABLE("invalid visibility");
-      return "unknown";
-  }
-}
 static const char* ToAudibilityStr(
     TelemetryProbesReporter::AudibleState aAudibleState) {
   switch (aAudibleState) {
@@ -157,7 +144,7 @@ void TelemetryProbesReporter::OnPause(Visibility aVisibility) {
 void TelemetryProbesReporter::OnVisibilityChanged(Visibility aVisibility) {
   AssertOnMainThreadAndNotShutdown();
   LOG("Corresponding media element visibility change=%s -> %s",
-      ToVisibilityStr(mMediaElementVisibility), ToVisibilityStr(aVisibility));
+      ToString(mMediaElementVisibility).c_str(), ToString(aVisibility).c_str());
   if (aVisibility == Visibility::eInvisible) {
     StartInvisibleVideoTimeAccumulator();
   } else {
