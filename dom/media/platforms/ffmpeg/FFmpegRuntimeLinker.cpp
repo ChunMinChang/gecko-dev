@@ -8,6 +8,7 @@
 #include "FFmpegLog.h"
 #include "FFmpegRuntimeLinker.h"
 #include "mozilla/ArrayUtils.h"
+#include "mozilla/ToString.h"
 #include "prlink.h"
 
 namespace mozilla {
@@ -133,8 +134,7 @@ bool FFmpegRuntimeLinker::Init() {
           }
           break;
       }
-      FFMPEGP_LOG("Failed to link %s: %s", lib,
-                  FFmpegLibWrapper::LinkResultToString(res));
+      FFMPEGP_LOG("Failed to link %s: %s", lib, ToString(res).c_str());
     }
   }
 
