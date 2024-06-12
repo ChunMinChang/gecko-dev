@@ -562,7 +562,7 @@ static Result<Ok, nsCString> VerifyRectSizeAlignment(
 }
 
 // https://w3c.github.io/webcodecs/#videoframe-parse-videoframecopytooptions
-static Result<CombinedBufferLayout, nsCString> ParseVideoFrameCopyToOptions(
+static Result<CombinedBufferLayout, MediaResult> ParseVideoFrameCopyToOptions(
     const VideoFrameCopyToOptions& aOptions, const gfx::IntRect& aVisibleRect,
     const gfx::IntSize& aCodedSize, const VideoFrame::Format& aFormat) {
   Maybe<gfx::IntRect> overrideRect;
@@ -574,19 +574,28 @@ static Result<CombinedBufferLayout, nsCString> ParseVideoFrameCopyToOptions(
     MOZ_TRY_VAR(overrideRect.ref(),
                 ToIntRect(aOptions.mRect.Value()).mapErr([](nsCString error) {
                   error.Insert("rect's ", 0);
-                  return error;
+                  return MediaResult(NS_ERROR_INVALID_ARG, error);
                 }));
 
-    MOZ_TRY(VerifyRectSizeAlignment(aFormat, overrideRect.ref()));
+    MOZ_TRY(VerifyRectSizeAlignment(aFormat, overrideRect.ref())
+                .mapErr([](nsCString error) {
+                  return MediaResult(NS_ERROR_INVALID_ARG, error);
+                }));
   }
 
   gfx::IntRect parsedRect;
-  MOZ_TRY_VAR(parsedRect, ParseVisibleRect(aVisibleRect, overrideRect,
-                                           aCodedSize, aFormat));
+  MOZ_TRY_VAR(parsedRect,
+              ParseVisibleRect(aVisibleRect, overrideRect, aCodedSize, aFormat)
+                  .mapErr([](nsCString error) {
+                    return MediaResult(NS_ERROR_INVALID_ARG, error);
+                  }));
 
   const Sequence<PlaneLayout>* optLayout = OptionalToPointer(aOptions.mLayout);
 
-  return ComputeLayoutAndAllocationSize(parsedRect, aFormat, optLayout);
+  return ComputeLayoutAndAllocationSize(parsedRect, aFormat, optLayout)
+      .mapErr([](nsCString error) {
+        return MediaResult(NS_ERROR_INVALID_ARG, error);
+      });
 }
 
 static bool IsYUVFormat(const VideoPixelFormat& aFormat) {
@@ -1652,7 +1661,7 @@ uint32_t VideoFrame::AllocationSize(const VideoFrameCopyToOptions& aOptions,
   auto r = ParseVideoFrameCopyToOptions(aOptions, mVisibleRect, mCodedSize,
                                         mResource->mFormat.ref());
   if (r.isErr()) {
-    aRv.ThrowTypeError(r.unwrapErr());
+    aRv.ThrowTypeError(r.unwrapErr().Message());
     return 0;
   }
   CombinedBufferLayout layout = r.unwrap();
@@ -1684,7 +1693,7 @@ already_AddRefed<Promise> VideoFrame::CopyTo(
   auto r = ParseVideoFrameCopyToOptions(aOptions, mVisibleRect, mCodedSize,
                                         mResource->mFormat.ref());
   if (r.isErr()) {
-    p->MaybeRejectWithTypeError(r.unwrapErr());
+    p->MaybeRejectWithTypeError(r.unwrapErr().Message());
     return p.forget();
   }
   CombinedBufferLayout layout = r.unwrap();
