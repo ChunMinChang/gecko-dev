@@ -1652,7 +1652,6 @@ uint32_t VideoFrame::AllocationSize(const VideoFrameCopyToOptions& aOptions,
   auto r = ParseVideoFrameCopyToOptions(aOptions, mVisibleRect, mCodedSize,
                                         mResource->mFormat.ref());
   if (r.isErr()) {
-    // TODO: Should throw layout.
     aRv.ThrowTypeError(r.unwrapErr());
     return 0;
   }
@@ -1686,7 +1685,6 @@ already_AddRefed<Promise> VideoFrame::CopyTo(
   auto r1 = ParseVideoFrameCopyToOptions(aOptions, mVisibleRect, mCodedSize,
                                          mResource->mFormat.ref());
   if (r1.isErr()) {
-    // TODO: Should reject with layout.
     p->MaybeRejectWithTypeError(r1.unwrapErr());
     return p.forget();
   }
