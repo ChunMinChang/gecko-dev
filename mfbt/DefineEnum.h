@@ -10,6 +10,7 @@
 #define mozilla_DefineEnum_h
 
 #include <stddef.h>  // for size_t
+#include <ostream>   // for std::ostream
 
 #include "mozilla/MacroArgs.h"     // for MOZ_ARG_COUNT
 #include "mozilla/MacroForEach.h"  // for MOZ_FOR_EACH
@@ -84,6 +85,8 @@
  *      and have names prefixed with "s" instead of "k" as per
  *      naming convention.
  *
+ *    - A |_TOSTRING| variant, which generates an ....
+ *
  *  (and combinations of these).
  */
 
@@ -152,5 +155,56 @@
                                                        aEnumerators)         \
   MOZ_DEFINE_ENUM_AT_CLASS_SCOPE_IMPL(aEnumName, class,                      \
                                       : aBaseName, aEnumerators)
+
+#define MOZ_DEFINE_ENUM_TO_ENUM_TEXT(aEnumeratorDecl) #aEnumeratorDecl
+
+#define MOZ_DEFINE_ENUM_TO_STRING_FUNC_IMPL(aEnumName, aEnumerators, aFriend) \
+  aFriend inline std::ostream& operator<<(std::ostream& aStream,              \
+                                          const aEnumName& aEnum) {           \
+    const char* mappedStrings[] = {MOZ_FOR_EACH_SEPARATED(                    \
+        MOZ_DEFINE_ENUM_TO_ENUM_TEXT, (, ), (), aEnumerators)};               \
+    aStream << mappedStrings[size_t(aEnum)];                                  \
+    return aStream;                                                           \
+  }
+
+#define MOZ_DEFINE_ENUM_TO_STRING_FUNC(aEnumName, aEnumerators) \
+  MOZ_DEFINE_ENUM_TO_STRING_FUNC_IMPL(aEnumName, aEnumerators, )
+
+#define MOZ_DEFINE_ENUM_TO_STRING_FUNC_IN_CLASS(aEnumName, aEnumerators) \
+  MOZ_DEFINE_ENUM_TO_STRING_FUNC_IMPL(aEnumName, aEnumerators, friend)
+
+#define MOZ_DEFINE_ENUM_WITH_BASE_AND_TOSTRING(aEnumName, aBaseName, \
+                                               aEnumerators)         \
+  MOZ_DEFINE_ENUM_WITH_BASE(aEnumName, aBaseName, aEnumerators)      \
+  MOZ_DEFINE_ENUM_TO_STRING_FUNC(aEnumName, aEnumerators)
+
+#define MOZ_DEFINE_ENUM_CLASS_WITH_TOSTRING(aEnumName, aEnumerators) \
+  MOZ_DEFINE_ENUM_CLASS(aEnumName, aEnumerators)                     \
+  MOZ_DEFINE_ENUM_TO_STRING_FUNC(aEnumName, aEnumerators)
+
+#define MOZ_DEFINE_ENUM_CLASS_WITH_BASE_AND_TOSTRING(aEnumName, aBaseName, \
+                                                     aEnumerators)         \
+  MOZ_DEFINE_ENUM_CLASS_WITH_BASE(aEnumName, aBaseName, aEnumerators)      \
+  MOZ_DEFINE_ENUM_TO_STRING_FUNC(aEnumName, aEnumerators)
+
+#define MOZ_DEFINE_ENUM_WITH_TOSTRING_AT_CLASS_SCOPE(aEnumName, aEnumerators) \
+  MOZ_DEFINE_ENUM_AT_CLASS_SCOPE(aEnumName, aEnumerators)                     \
+  MOZ_DEFINE_ENUM_TO_STRING_FUNC_IN_CLASS(aEnumName, aEnumerators)
+
+#define MOZ_DEFINE_ENUM_WITH_BASE_AND_TOSTRING_AT_CLASS_SCOPE(                 \
+    aEnumName, aBaseName, aEnumerators)                                        \
+  MOZ_DEFINE_ENUM_WITH_BASE_AT_CLASS_SCOPE(aEnumName, aBaseName, aEnumerators) \
+  MOZ_DEFINE_ENUM_TO_STRING_FUNC_IN_CLASS(aEnumName, aEnumerators)
+
+#define MOZ_DEFINE_ENUM_CLASS_WITH_TOSTRING_AT_CLASS_SCOPE(aEnumName,    \
+                                                           aEnumerators) \
+  MOZ_DEFINE_ENUM_CLASS_AT_CLASS_SCOPE(aEnumName, aEnumerators)          \
+  MOZ_DEFINE_ENUM_TO_STRING_FUNC_IN_CLASS(aEnumName, aEnumerators)
+
+#define MOZ_DEFINE_ENUM_CLASS_WITH_BASE_AND_TOSTRING_AT_CLASS_SCOPE(   \
+    aEnumName, aBaseName, aEnumerators)                                \
+  MOZ_DEFINE_ENUM_CLASS_WITH_BASE_AT_CLASS_SCOPE(aEnumName, aBaseName, \
+                                                 aEnumerators)         \
+  MOZ_DEFINE_ENUM_TO_STRING_FUNC_IN_CLASS(aEnumName, aEnumerators)
 
 #endif  // mozilla_DefineEnum_h
