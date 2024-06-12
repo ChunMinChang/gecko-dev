@@ -30,6 +30,7 @@
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/Telemetry.h"
+#include "mozilla/ToString.h"
 #include "mozilla/Unused.h"
 #include "mozilla/dom/DOMTypes.h"
 #include "mozilla/glean/GleanMetrics.h"
@@ -59,24 +60,6 @@ LazyLogModule gMediaDecoderLog("MediaDecoder");
 #define DUMP(x, ...) printf_stderr(x "\n", ##__VA_ARGS__)
 
 #define NS_DispatchToMainThread(...) CompileError_UseAbstractMainThreadInstead
-
-static const char* ToPlayStateStr(MediaDecoder::PlayState aState) {
-  switch (aState) {
-    case MediaDecoder::PLAY_STATE_LOADING:
-      return "LOADING";
-    case MediaDecoder::PLAY_STATE_PAUSED:
-      return "PAUSED";
-    case MediaDecoder::PLAY_STATE_PLAYING:
-      return "PLAYING";
-    case MediaDecoder::PLAY_STATE_ENDED:
-      return "ENDED";
-    case MediaDecoder::PLAY_STATE_SHUTDOWN:
-      return "SHUTDOWN";
-    default:
-      MOZ_ASSERT_UNREACHABLE("Invalid playState.");
-  }
-  return "UNKNOWN";
-}
 
 class MediaMemoryTracker : public nsIMemoryReporter {
   virtual ~MediaMemoryTracker();
@@ -862,11 +845,6 @@ void MediaDecoder::EnsureTelemetryReported() {
   mTelemetryReported = true;
 }
 
-const char* MediaDecoder::PlayStateStr() {
-  MOZ_ASSERT(NS_IsMainThread());
-  return ToPlayStateStr(mPlayState);
-}
-
 void MediaDecoder::FirstFrameLoaded(
     UniquePtr<MediaInfo> aInfo, MediaDecoderEventVisibility aEventVisibility) {
   MOZ_ASSERT(NS_IsMainThread());
@@ -875,7 +853,7 @@ void MediaDecoder::FirstFrameLoaded(
   LOG("FirstFrameLoaded, channels=%u rate=%u hasAudio=%d hasVideo=%d "
       "mPlayState=%s transportSeekable=%d",
       aInfo->mAudio.mChannels, aInfo->mAudio.mRate, aInfo->HasAudio(),
-      aInfo->HasVideo(), PlayStateStr(), IsTransportSeekable());
+      aInfo->HasVideo(), ToString(mPlayState).c_str(), IsTransportSeekable());
 
   mInfo = std::move(aInfo);
   mTelemetryProbesReporter->OnMediaContentChanged(
@@ -989,7 +967,7 @@ void MediaDecoder::PlaybackEnded() {
       mPlayState == PLAY_STATE_ENDED) {
     LOG("MediaDecoder::PlaybackEnded bailed out, "
         "mLogicallySeeking=%d mPlayState=%s",
-        mLogicallySeeking.Ref(), ToPlayStateStr(mPlayState));
+        mLogicallySeeking.Ref(), ToString(mPlayState).c_str());
     return;
   }
 
@@ -1043,9 +1021,9 @@ void MediaDecoder::ChangeState(PlayState aState) {
   }
 
   if (mPlayState != aState) {
-    DDLOG(DDLogCategory::Property, "play_state", ToPlayStateStr(aState));
-    LOG("Play state changes from %s to %s", ToPlayStateStr(mPlayState),
-        ToPlayStateStr(aState));
+    DDLOG(DDLogCategory::Property, "play_state", ToString(aState).c_str());
+    LOG("Play state changes from %s to %s", ToString(mPlayState).c_str(),
+        ToString(aState).c_str());
     mPlayState = aState;
     UpdateTelemetryHelperBasedOnPlayState(aState);
   }
@@ -1655,7 +1633,8 @@ void MediaDecoder::GetDebugInfo(dom::MediaDecoderDebugInfo& aInfo) {
   aInfo.mRate = mInfo ? mInfo->mAudio.mRate : 0;
   aInfo.mHasAudio = mInfo ? mInfo->HasAudio() : false;
   aInfo.mHasVideo = mInfo ? mInfo->HasVideo() : false;
-  CopyUTF8toUTF16(MakeStringSpan(PlayStateStr()), aInfo.mPlayState);
+  CopyUTF8toUTF16(MakeStringSpan(ToString(mPlayState).c_str()),
+                  aInfo.mPlayState);
   aInfo.mContainerType =
       NS_ConvertUTF8toUTF16(ContainerType().Type().AsString());
 }
