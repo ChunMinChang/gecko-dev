@@ -20,6 +20,7 @@
 #include "mozilla/KeySystemConfig.h"
 #include "mozilla/StaticMutex.h"
 #include "mozilla/StaticPrefs_media.h"
+#include "mozilla/ToString.h"
 #include "mozilla/WindowsVersion.h"
 #include "mozilla/dom/KeySystemNames.h"
 #include "mozilla/dom/MediaKeysBinding.h"
@@ -884,7 +885,7 @@ void MFCDMParent::GetCapabilities(const nsString& aKeySystem,
                                   convertCodecToFourCC(codec), nsCString(""),
                                   additionalFeature, isHardwareDecryption);
         MFCDM_PARENT_SLOG("clearlead %s IV 8 bytes %s %s",
-                          CryptoSchemeToString(scheme), codec.get(),
+                          ToString(scheme).c_str(), codec.get(),
                           rv ? "supported" : "not supported");
         if (rv) {
           supportedScheme += scheme;
@@ -896,7 +897,7 @@ void MFCDMParent::GetCapabilities(const nsString& aKeySystem,
                              nsCString(""), additionalFeature,
                              isHardwareDecryption);
         MFCDM_PARENT_SLOG("clearlead %s IV 16 bytes %s %s",
-                          CryptoSchemeToString(scheme), codec.get(),
+                          ToString(scheme).c_str(), codec.get(),
                           rv ? "supported" : "not supported");
 
         if (rv) {

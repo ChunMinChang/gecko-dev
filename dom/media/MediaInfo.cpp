@@ -5,7 +5,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "MediaInfo.h"
+
 #include "MediaData.h"
+#include "mozilla/ToString.h"
 
 namespace mozilla {
 
@@ -50,7 +52,8 @@ nsCString TrackInfo::ToString() const {
       NS_ConvertUTF16toUTF8(mLabel).get(),
       NS_ConvertUTF16toUTF8(mLanguage).get(), mEnabled ? "true" : "false",
       mTrackId, mMimeType.get(), mDuration.ToString().get(),
-      mMediaTime.ToString().get(), CryptoSchemeToString(mCrypto.mCryptoScheme),
+      mMediaTime.ToString().get(),
+      mozilla::ToString(mCrypto.mCryptoScheme).c_str(),
       mIsRenderedExternally ? "true" : "false", TrackTypeToStr(mType));
 
   if (!mTags.IsEmpty()) {
