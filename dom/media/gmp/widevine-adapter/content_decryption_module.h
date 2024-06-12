@@ -410,10 +410,10 @@ CHECK_TYPE(InitDataType, 4, 4);
 
 // The type of session to create. The valid types are defined in the spec:
 // https://w3c.github.io/encrypted-media/#dom-mediakeysessiontype
-enum SessionType : uint32_t {
-  kTemporary = 0,
-  kPersistentLicense = 1,
-};
+MOZ_DEFINE_ENUM_WITH_BASE_AND_TOSTRING(SessionType, uint32_t, (
+  kTemporary,
+  kPersistentLicense
+));
 CHECK_TYPE(SessionType, 4, 4);
 
 // The type of the message event.  The valid types are defined in the spec:
