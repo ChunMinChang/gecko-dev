@@ -343,7 +343,7 @@ nsString KeySystemConfig::GetDebugInfo() const {
   debugInfo.AppendLiteral(" sessionType=[");
   for (size_t idx = 0; idx < mSessionTypes.Length(); idx++) {
     debugInfo.AppendASCII(
-        nsPrintfCString("%s", SessionTypeToStr(mSessionTypes[idx])).get());
+        nsPrintfCString("%s", ToString(mSessionTypes[idx]).c_str()).get());
     if (idx + 1 < mSessionTypes.Length()) {
       debugInfo.AppendLiteral(",");
     }
@@ -384,18 +384,6 @@ KeySystemConfig::SessionType ConvertToKeySystemConfigSessionType(
     default:
       MOZ_ASSERT_UNREACHABLE("Invalid session type");
       return KeySystemConfig::SessionType::Temporary;
-  }
-}
-
-const char* SessionTypeToStr(KeySystemConfig::SessionType aType) {
-  switch (aType) {
-    case KeySystemConfig::SessionType::Temporary:
-      return "Temporary";
-    case KeySystemConfig::SessionType::PersistentLicense:
-      return "PersistentLicense";
-    default:
-      MOZ_ASSERT_UNREACHABLE("Invalid session type");
-      return "Invalid";
   }
 }
 
