@@ -34,6 +34,7 @@
 #include "mozilla/SharedThreadPool.h"
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/TaskQueue.h"
+#include "mozilla/ToString.h"
 #include "mozilla/Unused.h"
 #include "mozilla/glean/GleanMetrics.h"
 #include "nsContentUtils.h"
@@ -2897,7 +2898,7 @@ RefPtr<MediaFormatReader::SeekPromise> MediaFormatReader::Seek(
   MOZ_ASSERT(OnTaskQueue());
 
   LOG("aTarget=(%" PRId64 "), track=%s", aTarget.GetTime().ToMicroseconds(),
-      SeekTarget::TrackToStr(aTarget.GetTrack()));
+      ToString(aTarget.GetTrack()).c_str());
 
   MOZ_DIAGNOSTIC_ASSERT(mSeekPromise.IsEmpty());
   MOZ_DIAGNOSTIC_ASSERT(mPendingSeekTime.isNothing());
