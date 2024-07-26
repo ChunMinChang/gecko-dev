@@ -87,7 +87,6 @@ class ClearKeyUtils {
   static bool ParseJWK(const uint8_t* aKeyData, uint32_t aKeyDataSize,
                        std::vector<KeyIdPair>& aOutKeys,
                        cdm::SessionType aSessionType);
-  static const char* SessionTypeToString(cdm::SessionType aSessionType);
 
   static bool IsValidSessionId(const char* aBuff, uint32_t aLength);
 

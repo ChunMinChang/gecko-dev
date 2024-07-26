@@ -288,7 +288,7 @@ void ClearKeyUtils::MakeKeyRequest(const vector<KeyId>& aKeyIDs,
   aOutRequest.append("],\"type\":");
 
   aOutRequest.append("\"");
-  aOutRequest.append(SessionTypeToString(aSessionType));
+  aOutRequest.append(EnumValueToString(aSessionType));
   aOutRequest.append("\"}");
 }
 
@@ -531,7 +531,7 @@ bool ClearKeyUtils::ParseJWK(const uint8_t* aKeyData, uint32_t aKeyDataSize,
       // Consume type string.
       string type;
       if (!GetNextLabel(ctx, type)) return false;
-      if (type != SessionTypeToString(aSessionType)) {
+      if (type != cdm::EnumValueToString(aSessionType)) {
         return false;
       }
     } else {
@@ -617,21 +617,6 @@ bool ClearKeyUtils::ParseKeyIdsInitData(const uint8_t* aInitData,
   EXPECT_SYMBOL(ctx, '}');
 
   return true;
-}
-
-/* static */ const char* ClearKeyUtils::SessionTypeToString(
-    SessionType aSessionType) {
-  switch (aSessionType) {
-    case SessionType::kTemporary:
-      return "temporary";
-    case SessionType::kPersistentLicense:
-      return "persistent-license";
-    default: {
-      // We don't support any other license types.
-      assert(false);
-      return "invalid";
-    }
-  }
 }
 
 /* static */
