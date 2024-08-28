@@ -6,6 +6,7 @@
 
 #include "MediaChangeMonitor.h"
 
+#include "Adts.h"
 #include "AnnexB.h"
 #include "H264.h"
 #include "H265.h"
@@ -577,6 +578,73 @@ class AV1ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
   double mPixelAspectRatio;
 };
 #endif
+
+class AACCodecChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
+ public:
+  explicit AACCodecChangeMonitor(const AudioInfo& aInfo)
+      : mCurrentConfig(aInfo), mIsADTS(IsADTS(aInfo)) {}
+
+  bool CanBeInstantiated() const override { return true; }
+
+  MediaResult CheckForChange(MediaRawData* aSample) override {
+    // Check if the sample is ADTS or raw AAC
+    bool isADTS =
+        ADTS::FrameHeader::MatchesSync(Span{aSample->Data(), aSample->Size()});
+
+    if (isADTS != mIsADTS) {
+      if (!mIsADTS) {
+        // TODO: We were raw AAC but now we're ADTS.
+        LOG("No support to reinit decoder from raw AAC to ADTS for now");
+        return MediaResult(NS_ERROR_NOT_IMPLEMENTED);
+      }
+
+      LOG("We were ADTS but now we're not, we need to reinit the decoder.");
+      mIsADTS = isADTS;
+      // In this case, the AAC specific data is missing, so we need to fake
+      // one for the new decoder.
+      if (!FakeAACSpecificConfig()) {
+        return MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR);
+      }
+      LOG("AACCodecChangeMonitor requests a new AAC decoder");
+      return MediaResult(NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER);
+    }
+    return NS_OK;
+  }
+
+  const TrackInfo& Config() const override { return mCurrentConfig; }
+
+  MediaResult PrepareSample(MediaDataDecoder::ConversionRequired aConversion,
+                            MediaRawData* aSample,
+                            bool aNeedKeyFrame) override {
+    return NS_OK;
+  }
+
+ private:
+  static bool IsADTS(const AudioInfo& aInfo) {
+    return !aInfo.mCodecSpecificConfig.is<AacCodecSpecificData>() &&
+           !aInfo.mCodecSpecificConfig.is<AudioCodecSpecificBinaryBlob>();
+  }
+
+  bool FakeAACSpecificConfig() {
+    // If profile is not set, default to AAC-LC
+    const uint8_t aacObjectType =
+        mCurrentConfig.mProfile ? mCurrentConfig.mProfile : 2;
+    auto r = ADTS::MakeSpecificConfig(aacObjectType, mCurrentConfig.mRate,
+                                      mCurrentConfig.mChannels);
+    if (r.isErr()) {
+      LOG("Failed to make AAC specific config");
+      return false;
+    }
+    RefPtr<MediaByteBuffer> config = r.unwrap();
+    LOG("Faked AAC specific config: %zu bytes", config->Length());
+    mCurrentConfig.mCodecSpecificConfig =
+        AudioCodecSpecificVariant{AudioCodecSpecificBinaryBlob{config}};
+    return true;
+  }
+
+  AudioInfo mCurrentConfig;
+  bool mIsADTS;
+};
 
 MediaChangeMonitor::MediaChangeMonitor(
     PDMFactory* aPDMFactory,

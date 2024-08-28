@@ -286,6 +286,41 @@ void InitAudioSpecificConfig(const ADTS::Frame& frame,
   aBuffer->AppendElements(asc, 2);
 }
 
+Result<already_AddRefed<MediaByteBuffer>, nsresult> MakeSpecificConfig(
+    uint8_t aObjectType, uint32_t aFrequency, uint32_t aChannelCount) {
+  // https://wiki.multimedia.cx/index.php/MPEG-4_Audio#Audio_Specific_Config
+  // Generate a 2 byte header: OOOOO IIII CCCC XXX
+  // O: object type: value in [0, 45]
+  // I: frequency index: the index in FREQ_LOOKUP.
+  // C: channel config for 1,2,3,4,5,6, and 8 channels.
+  // X: padding zeros.
+  // For example, AAC Main with 2 channel and 44100 hz will get 0x0A10: 00001
+  // 0100 0010 000
+  if (aObjectType > 45 /* USAC */) {
+    return Err(NS_ERROR_INVALID_ARG);
+  }
+
+  if (aChannelCount > 8 || aChannelCount == 7) {
+    return Err(NS_ERROR_INVALID_ARG);
+  }
+
+  auto r = GetFrequencyIndex(aFrequency);
+  if (r.isErr()) {
+    return Err(NS_ERROR_INVALID_ARG);
+  }
+
+  uint8_t index = r.unwrap();
+  uint8_t channelConfig =
+      aChannelCount == 8 ? aChannelCount - 1 : aChannelCount;
+  uint8_t asc[2];
+  asc[0] = (aObjectType & 0x01F) << 3 | (index & 0x0E) >> 1;
+  asc[1] = (index & 0x01) << 7 | (channelConfig & 0x0F) << 3;
+
+  RefPtr<MediaByteBuffer> buffer = new MediaByteBuffer();
+  buffer->AppendElements(asc, 2);
+  return buffer.forget();
+}
+
 };  // namespace ADTS
 };  // namespace mozilla
 
