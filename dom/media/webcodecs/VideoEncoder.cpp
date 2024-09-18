@@ -339,10 +339,6 @@ VideoEncoderConfigInternal::Diff(
 static bool CanEncode(const RefPtr<VideoEncoderConfigInternal>& aConfig) {
   auto parsedCodecString =
       ParseCodecString(aConfig->mCodec).valueOr(EmptyString());
-  // TODO: Enable WebCodecs on Android (Bug 1840508)
-  if (IsOnAndroid()) {
-    return false;
-  }
   if (!IsSupportedVideoCodec(parsedCodecString)) {
     return false;
   }
