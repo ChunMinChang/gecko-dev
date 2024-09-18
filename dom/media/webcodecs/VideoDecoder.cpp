@@ -208,10 +208,6 @@ static nsTArray<nsCString> GuessMIMETypes(const MIMECreateParam& aParam) {
 template <typename Config>
 static bool CanDecode(const Config& aConfig) {
   auto param = MIMECreateParam(aConfig);
-  // TODO: Enable WebCodecs on Android (Bug 1840508)
-  if (IsOnAndroid()) {
-    return false;
-  }
   if (!IsSupportedVideoCodec(param.mParsedCodec)) {
     return false;
   }
