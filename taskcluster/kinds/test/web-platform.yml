@@ -181,7 +181,6 @@ web-platform-tests-webcodecs:
     variants: []  # We don't need sw or nofis testing.
     run-on-projects:
         by-test-platform:
-            android.*: []
             .*wayland.*: []
             default: built-projects
     mozharness:
