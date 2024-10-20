@@ -8,6 +8,7 @@
 
 #include "mozilla/AlreadyAddRefed.h"
 #include "nsError.h"
+#include "mozilla/gfx/Point.h"
 
 namespace mozilla {
 
@@ -35,8 +36,8 @@ nsresult ConvertToI420(layers::Image* aImage, uint8_t* aDestY, int aDestStrideY,
 /**
  * Converts aImage to an NV12 image and writes it to the given buffers.
  */
-nsresult ConvertToNV12(layers::Image* aImage, uint8_t* aDestY, int aDestStrideY,
-                       uint8_t* aDestUV, int aDestStrideUV);
+nsresult ConvertToNV12(layers::Image* aImage, uint8_t* aDest,
+                       gfx::IntSize aDestSize);
 
 /**
  * Converts aImage into an RGBA image in a specified format and writes it to the
