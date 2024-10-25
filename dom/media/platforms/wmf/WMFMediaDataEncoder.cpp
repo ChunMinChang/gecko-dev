@@ -212,19 +212,20 @@ already_AddRefed<IMFSample> WMFMediaDataEncoder::ConvertToNV12InputSample(
 
   size_t mBufferLength = 0;
 
-  // Calculation of the destination's buffer length based on the destination
-  // size
-  const int32_t yHeight = mConfig.mSize.height;
-  const int32_t uvHeight = yHeight / 2;
+  const int32_t ySrtride = mConfig.mSize.width;
+  const int32_t uvStride = ySrtride;
 
-  CheckedInt<size_t> yLength(mConfig.mSize.width);
+  const int32_t yHeight = mConfig.mSize.height;
+  const int32_t uvHeight = yHeight / 2 + (yHeight % 2);
+
+  CheckedInt<size_t> yLength(ySrtride);
   yLength *= yHeight;
   if (!yLength.isValid()) {
     WMF_ENC_LOGE("dest yLength overflows");
     return nullptr;
   }
 
-  CheckedInt<size_t> uvLength(mConfig.mSize.width);
+  CheckedInt<size_t> uvLength(uvStride);
   uvLength *= uvHeight;
   if (!uvLength.isValid()) {
     WMF_ENC_LOGE("dest uvLength overflows");
@@ -238,20 +239,6 @@ already_AddRefed<IMFSample> WMFMediaDataEncoder::ConvertToNV12InputSample(
     return nullptr;
   }
   mBufferLength = length.value();
-
-  if (const layers::PlanarYCbCrImage* image =
-          aData->mImage
-              ->AsPlanarYCbCrImage()) {  // in case the strides are larger
-    // Assume this is I420. If it's not, the whole process fails in
-    // ConvertToNV12 below.
-    const layers::PlanarYCbCrData* yuv = image->GetData();
-    size_t ySrcStride = yuv->mYStride;
-    size_t uVSrcStride = yuv->mCbCrStride * 2;
-    size_t ySrcLength = ySrcStride * yuv->YDataSize().height;
-    size_t yuvBufferLength =
-        ySrcLength + (uVSrcStride * yuv->CbCrDataSize().height);
-    if (yuvBufferLength > mBufferLength) mBufferLength = yuvBufferLength;
-  }
 
   RefPtr<IMFSample> input;
   HRESULT hr = mEncoder->CreateInputSample(&input, mBufferLength);
@@ -287,7 +274,9 @@ already_AddRefed<IMFSample> WMFMediaDataEncoder::ConvertToNV12InputSample(
     return nullptr;
   }
 
-  nsresult rv = ConvertToNV12(aData->mImage, lockBuffer.Data(), mConfig.mSize);
+  nsresult rv = ConvertToNV12(aData->mImage, lockBuffer.Data(), ySrtride,
+                              lockBuffer.Data() + yLength.value(), uvStride,
+                              mConfig.mSize);
   if (NS_FAILED(rv)) {
     WMF_ENC_LOGE("Failed to convert to NV12");
     return nullptr;
