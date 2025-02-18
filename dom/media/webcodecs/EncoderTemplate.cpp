@@ -49,6 +49,14 @@ namespace mozilla::dom {
 #endif  // LOGV
 #define LOGV(msg, ...) LOG_INTERNAL(Verbose, msg, ##__VA_ARGS__)
 
+#define ENCODER_MARKER_NO_TEXT(postfix) ENCODER_MARKER_TEXT(postfix, "")
+
+#define ENCODER_MARKER_TEXT(postfix, text) \
+  WEBCODECS_MARKER_TEXT(EncoderType::Name.get(), postfix, text)
+
+#define ENCODER_MARKER_FMT(postfix, format, ...) \
+  WEBCODECS_MARKER_FMT(EncoderType::Name.get(), postfix, format, __VA_ARGS__)
+
 /*
  * Below are ControlMessage classes implementations
  */
@@ -99,6 +107,9 @@ void EncoderTemplate<EncoderType>::Configure(const ConfigType& aConfig,
                                              ErrorResult& aRv) {
   AssertIsOnOwningThread();
 
+  ENCODER_MARKER_FMT("::Configure", "codec {}",
+                     NS_ConvertUTF16toUTF8(aConfig.mCodec).get());
+
   LOG("%s::Configure %p codec %s", EncoderType::Name.get(), this,
       NS_ConvertUTF16toUTF8(aConfig.mCodec).get());
 
@@ -139,6 +150,8 @@ void EncoderTemplate<EncoderType>::EncodeAudioData(InputType& aInput,
                                                    ErrorResult& aRv) {
   AssertIsOnOwningThread();
 
+  ENCODER_MARKER_NO_TEXT("::EncodeAudioData");
+
   LOG("%s %p, EncodeAudioData", EncoderType::Name.get(), this);
 
   if (mState != CodecState::Configured) {
@@ -167,6 +180,8 @@ void EncoderTemplate<EncoderType>::EncodeVideoFrame(
     ErrorResult& aRv) {
   AssertIsOnOwningThread();
 
+  ENCODER_MARKER_TEXT("::EncodeVideoFrame", aInput.ToString());
+
   LOG("%s::Encode %p %s", EncoderType::Name.get(), this,
       aInput.ToString().get());
 
@@ -193,6 +208,8 @@ template <typename EncoderType>
 already_AddRefed<Promise> EncoderTemplate<EncoderType>::Flush(
     ErrorResult& aRv) {
   AssertIsOnOwningThread();
+
+  ENCODER_MARKER_NO_TEXT("::Flush");
 
   LOG("%s::Flush %p", EncoderType::Name.get(), this);
 
@@ -224,6 +241,7 @@ template <typename EncoderType>
 void EncoderTemplate<EncoderType>::Reset(ErrorResult& aRv) {
   AssertIsOnOwningThread();
 
+  ENCODER_MARKER_NO_TEXT("::Reset");
   LOG("%s %p, Reset", EncoderType::Name.get(), this);
 
   if (auto r = ResetInternal(NS_ERROR_DOM_ABORT_ERR); r.isErr()) {
@@ -235,6 +253,7 @@ template <typename EncoderType>
 void EncoderTemplate<EncoderType>::Close(ErrorResult& aRv) {
   AssertIsOnOwningThread();
 
+  ENCODER_MARKER_NO_TEXT("::Close");
   LOG("%s %p, Close", EncoderType::Name.get(), this);
 
   if (auto r = CloseInternalWithAbort(); r.isErr()) {
@@ -300,6 +319,8 @@ void EncoderTemplate<EncoderType>::CloseInternal(const nsresult& aResult) {
 template <typename EncoderType>
 void EncoderTemplate<EncoderType>::ReportError(const nsresult& aResult) {
   AssertIsOnOwningThread();
+
+  ENCODER_MARKER_NO_TEXT("::ReportError");
 
   RefPtr<DOMException> e = DOMException::Create(aResult);
   RefPtr<WebCodecsErrorCallback> cb(mErrorCallback);
@@ -431,7 +452,9 @@ void EncoderTemplate<EncoderType>::ScheduleDequeueEvent() {
   }
   mDequeueEventScheduled = true;
 
+  ENCODER_MARKER_NO_TEXT(", schedule dequeue event");
   QueueATask("dequeue event task", [self = RefPtr{this}]() {
+    ENCODER_MARKER_NO_TEXT(", fire dequeue event");
     self->FireEvent(nsGkAtoms::ondequeue, u"dequeue"_ns);
     self->mDequeueEventScheduled = false;
   });
@@ -603,6 +626,7 @@ void EncoderTemplate<EncoderType>::StopBlockingMessageQueue() {
 template <typename EncoderType>
 void EncoderTemplate<EncoderType>::OutputEncodedData(
     const nsTArray<RefPtr<MediaRawData>>&& aData) {
+  ENCODER_MARKER_NO_TEXT("::OutputEncodedData");
   if constexpr (std::is_same_v<EncoderType, VideoEncoderTraits>) {
     OutputEncodedVideoData(std::move(aData));
   } else {
@@ -770,6 +794,7 @@ void EncoderTemplate<EncoderType>::Configure(
   MOZ_ASSERT(mAgent);
   MOZ_ASSERT(mActiveConfig);
 
+  ENCODER_MARKER_TEXT(", configuring encoder", mActiveConfig->ToString());
   LOG("Real configuration with fresh config: %s",
       mActiveConfig->ToString().get());
 
@@ -786,6 +811,9 @@ void EncoderTemplate<EncoderType>::Configure(
                MOZ_ASSERT(id == self->mAgent->mId);
                MOZ_ASSERT(self->mActiveConfig);
 
+               ENCODER_MARKER_FMT(
+                   ", configured", "{} has been {}", aMessage->ToString(),
+                   aResult.IsResolve() ? "resolved" : "rejected");
                LOG("%s %p, EncoderAgent #%zu %s has been %s. now unblocks "
                    "message-queue-processing",
                    EncoderType::Name.get(), self.get(), id,
@@ -864,6 +892,8 @@ MessageProcessedResult EncoderTemplate<EncoderType>::ProcessEncodeMessage(
     return closeOnError();
   }
 
+  ENCODER_MARKER_TEXT(", encoding", aMessage->ToString());
+
   mAgent->Encode(data.get())
       ->Then(GetCurrentSerialEventTarget(), __func__,
              [self = RefPtr{this}, id = mAgent->mId, aMessage](
@@ -876,6 +906,10 @@ MessageProcessedResult EncoderTemplate<EncoderType>::ProcessEncodeMessage(
                MOZ_ASSERT(self->mActiveConfig);
 
                nsCString msgStr = aMessage->ToString();
+
+               ENCODER_MARKER_FMT(
+                   ", encoded", "{} has been {}", msgStr,
+                   aResult.IsResolve() ? "resolved" : "rejected");
 
                aMessage->Complete();
                self->mProcessingMessage = nullptr;
@@ -946,6 +980,8 @@ MessageProcessedResult EncoderTemplate<EncoderType>::ProcessFlushMessage(
     return MessageProcessedResult::Processed;
   }
 
+  ENCODER_MARKER_TEXT(", flushing", aMessage->ToString());
+
   mAgent->Drain()
       ->Then(GetCurrentSerialEventTarget(), __func__,
              [self = RefPtr{this}, id = mAgent->mId, aMessage, this](
@@ -957,6 +993,9 @@ MessageProcessedResult EncoderTemplate<EncoderType>::ProcessFlushMessage(
                MOZ_ASSERT(id == self->mAgent->mId);
                MOZ_ASSERT(self->mActiveConfig);
 
+               ENCODER_MARKER_FMT(
+                   ", flushed", "%s has been %s", aMessage->ToString(),
+                   aResult.IsResolve() ? "resolved" : "rejected");
                LOG("%s %p, EncoderAgent #%zu %s has been %s",
                    EncoderType::Name.get(), self.get(), id,
                    aMessage->ToString().get(),
