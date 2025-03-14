@@ -883,4 +883,73 @@ Result<RefPtr<layers::Image>, nsresult> ScaleYUVImage(layers::Image* aImage,
   return RefPtr<layers::Image>(image.forget());
 }
 
+Result<RefPtr<layers::Image>, nsresult> ScaleRGBAImage(layers::Image* aImage,
+                                                       gfx::IntSize aDestSize) {
+  if (aDestSize == aImage->GetSize()) {
+    return Err(NS_ERROR_NOT_IMPLEMENTED);
+  }
+
+  RefPtr<SourceSurface> surf = GetSourceSurface(aImage);
+  if (!surf) {
+    return Err(NS_ERROR_FAILURE);
+  }
+
+  RefPtr<DataSourceSurface> data = surf->GetDataSurface();
+  if (!data) {
+    return Err(NS_ERROR_FAILURE);
+  }
+
+  DataSourceSurface::ScopedMap map(data, DataSourceSurface::READ);
+  if (!map.IsMapped()) {
+    return Err(NS_ERROR_FAILURE);
+  }
+
+  // TODO: Support more RGBA formats: R8G8B8A8, R8G8B8X8, X8R8G8B8, A8R8G8B8,
+  // R5G6B5_UINT16
+  if (surf->GetFormat() != SurfaceFormat::B8G8R8A8 &&
+      surf->GetFormat() != SurfaceFormat::B8G8R8X8) {
+    NS_WARNING("ScaleRGBAImage: Convert SurfaceFormat in BGR* only");
+    return Err(NS_ERROR_NOT_IMPLEMENTED);
+  }
+
+  CheckedInt<int> rgbaStride(aDestSize.width);
+  rgbaStride *= 4;
+  if (!rgbaStride.isValid()) {
+    NS_WARNING("ScaleRGBAImage: Destination width is too large");
+    return Err(NS_ERROR_INVALID_ARG);
+  }
+
+  CheckedInt<size_t> rgbSize(rgbaStride.value());
+  rgbSize *= aDestSize.height;
+  if (!rgbSize.isValid()) {
+    NS_WARNING("ScaleRGBAImage: Destination size is too large");
+    return Err(NS_ERROR_INVALID_ARG);
+  }
+
+  RefPtr<DataSourceSurface> newData =
+      gfx::Factory::CreateDataSourceSurfaceWithStride(
+          aDestSize, gfx::SurfaceFormat::B8G8R8A8, rgbaStride.value());
+  if (!newData) {
+    NS_WARNING(
+        "ScaleRGBAImage: Failed to allocate buffer for rescaled RGB32 image");
+    return Err(NS_ERROR_OUT_OF_MEMORY);
+  }
+
+  DataSourceSurface::ScopedMap newMap(newData, DataSourceSurface::WRITE);
+  if (!newMap.IsMapped()) {
+    return Err(NS_ERROR_FAILURE);
+  }
+
+  nsresult rv = MapRv(libyuv::ARGBScale(
+      map.GetData(), map.GetStride(), aImage->GetSize().width,
+      aImage->GetSize().height, newMap.GetData(), rgbaStride.value(),
+      aDestSize.width, aDestSize.height, libyuv::FilterMode::kFilterBox));
+  if (NS_FAILED(rv)) {
+    NS_WARNING("ScaleRGBAImage: ARGBScale failed");
+    return Err(rv);
+  }
+
+  return RefPtr<layers::Image>(new layers::SourceSurfaceImage(newData.get()));
+}
+
 }  // namespace mozilla
