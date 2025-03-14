@@ -3,8 +3,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef ImageToI420Converter_h
-#define ImageToI420Converter_h
+#ifndef DOM_MEDIA_IMAGECONVERSION_H_
+#define DOM_MEDIA_IMAGECONVERSION_H_
 
 #include "mozilla/AlreadyAddRefed.h"
 #include "nsError.h"
@@ -59,4 +59,4 @@ nsresult ConvertSRGBBufferToDisplayP3(uint8_t* aSrcBuffer,
 
 }  // namespace mozilla
 
-#endif /* ImageToI420Converter_h */
+#endif /* DOM_MEDIA_IMAGECONVERSION_H_ */
