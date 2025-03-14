@@ -65,6 +65,12 @@ nsresult ConvertSRGBBufferToDisplayP3(uint8_t* aSrcBuffer,
 Result<RefPtr<layers::Image>, nsresult> ScaleYUVImage(layers::Image* aImage,
                                                       gfx::IntSize aDestSize);
 
+/*
+ * Scales the given RGBA image to the given size.
+ */
+Result<RefPtr<layers::Image>, nsresult> ScaleRGBAImage(layers::Image* aImage,
+                                                       gfx::IntSize aDestSize);
+
 // TODO: Add support for scaling RGB images.
 }  // namespace mozilla
 
