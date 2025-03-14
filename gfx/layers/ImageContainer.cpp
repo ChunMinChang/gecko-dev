@@ -886,6 +886,48 @@ nsresult RecyclingPlanarYCbCrImage::CopyData(const Data& aData) {
   return NS_OK;
 }
 
+nsresult RecyclingPlanarYCbCrImage::CreateEmptyBuffer(
+    const Data& aData, const gfx::IntSize& aYSize,
+    const gfx::IntSize& aCbCrSize) {
+  // update buffer size
+  // Use uint32_t throughout to match AllocateBuffer's param and mBufferSize
+  const auto checkedSize =
+      CheckedInt<uint32_t>(aData.mCbCrStride) * aCbCrSize.height * 2 +
+      CheckedInt<uint32_t>(aData.mYStride) * aYSize.height *
+          (aData.mAlpha ? 2 : 1);
+
+  if (!checkedSize.isValid()) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
+  const auto size = checkedSize.value();
+
+  // get new buffer
+  mBuffer = AllocateBuffer(size);
+  if (!mBuffer) {
+    return NS_ERROR_OUT_OF_MEMORY;
+  }
+
+  // update buffer size
+  mBufferSize = size;
+
+  mData = aData;  // mAlpha will be set if aData has it
+  mData.mYChannel = mBuffer.get();
+  mData.mCbChannel = mData.mYChannel + mData.mYStride * aYSize.height;
+  mData.mCrChannel = mData.mCbChannel + mData.mCbCrStride * aCbCrSize.height;
+  mData.mYSkip = mData.mCbSkip = mData.mCrSkip = 0;
+
+  if (aData.mAlpha) {
+    MOZ_ASSERT(mData.mAlpha);
+    mData.mAlpha->mChannel =
+        mData.mCrChannel + mData.mCbCrStride * aCbCrSize.height;
+  }
+
+  mSize = aData.mPictureRect.Size();
+  mOrigin = aData.mPictureRect.TopLeft();
+  return NS_OK;
+}
+
 gfxImageFormat PlanarYCbCrImage::GetOffscreenFormat() const {
   return mOffscreenFormat == SurfaceFormat::UNKNOWN ? gfxVars::OffscreenFormat()
                                                     : mOffscreenFormat;

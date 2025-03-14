@@ -811,4 +811,76 @@ nsresult ConvertSRGBBufferToDisplayP3(uint8_t* aSrcBuffer,
   return NS_OK;
 }
 
+Result<RefPtr<layers::Image>, nsresult> ScaleYUVImage(layers::Image* aImage,
+                                                      gfx::IntSize aDestSize) {
+  if (aDestSize == aImage->GetSize()) {
+    return Err(NS_ERROR_NOT_IMPLEMENTED);
+  }
+
+  const ImageUtils imageUtils(aImage);
+  Maybe<dom::ImageBitmapFormat> format = imageUtils.GetFormat();
+  if (format.isNothing()) {
+    return Err(NS_ERROR_NOT_IMPLEMENTED);
+  }
+
+  // TODO: Support more YUV formats: YUV422P, YUV444P, YUV420SP_NV12,
+  // YUV420SP_NV21.
+  if (format.value() != ImageBitmapFormat::YUV420P) {
+    NS_WARNING("ScaleYUVImage: Convert YUV data in I420 only");
+    return Err(NS_ERROR_NOT_IMPLEMENTED);
+  }
+
+  const PlanarYCbCrData* data = GetPlanarYCbCrData(aImage);
+  if (!data) {
+    NS_WARNING("ScaleYUVImage: Should contain YUV data");
+    return Err(NS_ERROR_UNEXPECTED);
+  }
+
+  const int32_t halfWidth = CeilingOfHalf(aDestSize.width);
+  const uint32_t halfHeight = CeilingOfHalf(aDestSize.height);
+
+  PlanarYCbCrData scaledData;
+  scaledData.mYChannel = scaledData.mCbChannel = scaledData.mCrChannel =
+      nullptr;
+  scaledData.mYSkip = scaledData.mCbSkip = scaledData.mCrSkip = 0;
+
+  scaledData.mYStride = aDestSize.width;
+  scaledData.mCbCrStride = halfWidth;
+  scaledData.mChromaSubsampling = gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
+  scaledData.mPictureRect = {0, 0, aDestSize.width, aDestSize.height};
+
+  const gfx::IntSize ySize = aDestSize;
+  const gfx::IntSize uvSize(halfWidth, halfHeight);
+
+  RefPtr<layers::PlanarYCbCrImage> image =
+      new layers::RecyclingPlanarYCbCrImage(new layers::BufferRecycleBin());
+  if (!image) {
+    NS_WARNING("ScaleYUVImage: Failed to allocate image");
+    return Err(NS_ERROR_OUT_OF_MEMORY);
+  }
+
+  nsresult r = image->CreateEmptyBuffer(scaledData, ySize, uvSize);
+  if (NS_FAILED(r)) {
+    NS_WARNING("ScaleYUVImage: CreateEmptyBuffer failed");
+    return Err(r);
+  }
+
+  const PlanarYCbCrData* dest = image->GetData();
+
+  nsresult rv = MapRv(libyuv::I420Scale(
+      data->mYChannel, data->mYStride, data->mCbChannel, data->mCbCrStride,
+      data->mCrChannel, data->mCbCrStride, aImage->GetSize().width,
+      aImage->GetSize().height, dest->mYChannel, dest->mYStride,
+      dest->mCbChannel, dest->mCbCrStride, dest->mCrChannel, dest->mCbCrStride,
+      dest->mPictureRect.width, dest->mPictureRect.height,
+      libyuv::FilterMode::kFilterBox));
+  if (NS_FAILED(rv)) {
+    NS_WARNING("ScaleYUVImage: I420Scale failed");
+    return Err(rv);
+  }
+
+  // Manually cast type to make Result work.
+  return RefPtr<layers::Image>(image.forget());
+}
+
 }  // namespace mozilla

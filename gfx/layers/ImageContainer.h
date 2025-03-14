@@ -910,6 +910,8 @@ class RecyclingPlanarYCbCrImage : public PlanarYCbCrImage {
       : mRecycleBin(aRecycleBin) {}
   virtual ~RecyclingPlanarYCbCrImage();
   nsresult CopyData(const Data& aData) override;
+  nsresult CreateEmptyBuffer(const Data& aData, const gfx::IntSize& aYSize,
+                             const gfx::IntSize& aCbCrSize) override;
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const override;
 
  protected:
