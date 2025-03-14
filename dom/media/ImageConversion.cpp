@@ -466,8 +466,32 @@ nsresult ConvertToNV12(layers::Image* aImage, uint8_t* aDestY, int aDestStrideY,
     return NS_ERROR_INVALID_ARG;
   }
 
-  if (const PlanarYCbCrData* data = GetPlanarYCbCrData(aImage)) {
-    const ImageUtils imageUtils(aImage);
+  layers::Image* srcImage = aImage;
+  RefPtr<layers::Image> scaledImage = nullptr;
+
+  const PlanarYCbCrData* yuv = GetPlanarYCbCrData(srcImage);
+
+  if (aImage->GetSize() != aDestSize) {
+    if (yuv) {
+      auto r = ScaleYUVImage(srcImage, aDestSize);
+      if (r.isErr()) {
+        NS_WARNING("ConvertToNV12: Failed to scale YUV image");
+        return r.unwrapErr();
+      }
+      scaledImage = r.unwrap();
+    } else {
+      auto r = ScaleRGBAImage(srcImage, aDestSize);
+      if (r.isErr()) {
+        NS_WARNING("ConvertToNV12: Failed to scale RGBA image");
+        return r.unwrapErr();
+      }
+      scaledImage = r.unwrap();
+    }
+    srcImage = scaledImage.get();
+  }
+
+  if (yuv) {
+    const ImageUtils imageUtils(srcImage);
     Maybe<dom::ImageBitmapFormat> format = imageUtils.GetFormat();
     if (format.isNothing()) {
       MOZ_ASSERT_UNREACHABLE("YUV format conversion not implemented");
@@ -479,73 +503,13 @@ nsresult ConvertToNV12(layers::Image* aImage, uint8_t* aDestY, int aDestStrideY,
       return NS_ERROR_NOT_IMPLEMENTED;
     }
 
-    PlanarYCbCrData i420Source = *data;
-    gfx::AlignedArray<uint8_t> scaledI420Buffer;
-
-    if (aDestSize != aImage->GetSize()) {
-      const int32_t halfWidth = CeilingOfHalf(aDestSize.width);
-      const uint32_t halfHeight = CeilingOfHalf(aDestSize.height);
-
-      CheckedInt<size_t> ySize(aDestSize.width);
-      ySize *= aDestSize.height;
-
-      CheckedInt<size_t> uSize(halfWidth);
-      uSize *= halfHeight;
-
-      CheckedInt<size_t> vSize(uSize);
-
-      CheckedInt<size_t> i420Size = ySize + uSize + vSize;
-      if (!i420Size.isValid()) {
-        NS_WARNING("ConvertToNV12: Destination size is too large");
-        return NS_ERROR_INVALID_ARG;
-      }
-
-      scaledI420Buffer.Realloc(i420Size.value());
-      if (!scaledI420Buffer) {
-        NS_WARNING(
-            "ConvertToNV12: Failed to allocate buffer for rescaled I420 image");
-        return NS_ERROR_OUT_OF_MEMORY;
-      }
-
-      // Y plane
-      i420Source.mYChannel = scaledI420Buffer;
-      i420Source.mYStride = aDestSize.width;
-      i420Source.mYSkip = 0;
-
-      // Cb plane (aka U)
-      i420Source.mCbChannel = i420Source.mYChannel + ySize.value();
-      i420Source.mCbSkip = 0;
-
-      // Cr plane (aka V)
-      i420Source.mCrChannel = i420Source.mCbChannel + uSize.value();
-      i420Source.mCrSkip = 0;
-
-      i420Source.mCbCrStride = halfWidth;
-      i420Source.mChromaSubsampling =
-          gfx::ChromaSubsampling::HALF_WIDTH_AND_HEIGHT;
-      i420Source.mPictureRect = {0, 0, aDestSize.width, aDestSize.height};
-
-      nsresult rv = MapRv(libyuv::I420Scale(
-          data->mYChannel, data->mYStride, data->mCbChannel, data->mCbCrStride,
-          data->mCrChannel, data->mCbCrStride, aImage->GetSize().width,
-          aImage->GetSize().height, i420Source.mYChannel, i420Source.mYStride,
-          i420Source.mCbChannel, i420Source.mCbCrStride, i420Source.mCrChannel,
-          i420Source.mCbCrStride, i420Source.mPictureRect.width,
-          i420Source.mPictureRect.height, libyuv::FilterMode::kFilterBox));
-      if (NS_FAILED(rv)) {
-        NS_WARNING("ConvertToNV12: I420Scale failed");
-        return rv;
-      }
-    }
-
     return MapRv(libyuv::I420ToNV12(
-        i420Source.mYChannel, i420Source.mYStride, i420Source.mCbChannel,
-        i420Source.mCbCrStride, i420Source.mCrChannel, i420Source.mCbCrStride,
-        aDestY, aDestStrideY, aDestUV, aDestStrideUV, aDestSize.width,
-        aDestSize.height));
+        yuv->mYChannel, yuv->mYStride, yuv->mCbChannel, yuv->mCbCrStride,
+        yuv->mCrChannel, yuv->mCbCrStride, aDestY, aDestStrideY, aDestUV,
+        aDestStrideUV, aDestSize.width, aDestSize.height));
   }
 
-  RefPtr<SourceSurface> surf = GetSourceSurface(aImage);
+  RefPtr<SourceSurface> surf = GetSourceSurface(srcImage);
   if (!surf) {
     return NS_ERROR_FAILURE;
   }
@@ -566,49 +530,7 @@ nsresult ConvertToNV12(layers::Image* aImage, uint8_t* aDestY, int aDestStrideY,
     return NS_ERROR_NOT_IMPLEMENTED;
   }
 
-  struct RgbSource {
-    uint8_t* mBuffer;
-    int32_t mStride;
-  } rgbSource = {map.GetData(), map.GetStride()};
-
-  gfx::AlignedArray<uint8_t> scaledRGB32Buffer;
-
-  if (aDestSize != aImage->GetSize()) {
-    CheckedInt<int> rgbaStride(aDestSize.width);
-    rgbaStride *= 4;
-    if (!rgbaStride.isValid()) {
-      NS_WARNING("ConvertToNV12: Destination width is too large");
-      return NS_ERROR_INVALID_ARG;
-    }
-
-    CheckedInt<size_t> rgbSize(rgbaStride.value());
-    rgbSize *= aDestSize.height;
-    if (!rgbSize.isValid()) {
-      NS_WARNING("ConvertToNV12: Destination size is too large");
-      return NS_ERROR_INVALID_ARG;
-    }
-
-    scaledRGB32Buffer.Realloc(rgbSize.value());
-    if (!scaledRGB32Buffer) {
-      NS_WARNING(
-          "ConvertToNV12: Failed to allocate buffer for rescaled RGB32 image");
-      return NS_ERROR_OUT_OF_MEMORY;
-    }
-
-    nsresult rv = MapRv(libyuv::ARGBScale(
-        map.GetData(), map.GetStride(), aImage->GetSize().width,
-        aImage->GetSize().height, scaledRGB32Buffer, rgbaStride.value(),
-        aDestSize.width, aDestSize.height, libyuv::FilterMode::kFilterBox));
-    if (NS_FAILED(rv)) {
-      NS_WARNING("ConvertToNV12: ARGBScale failed");
-      return rv;
-    }
-
-    rgbSource.mBuffer = scaledRGB32Buffer;
-    rgbSource.mStride = rgbaStride.value();
-  }
-
-  return MapRv(libyuv::ARGBToNV12(rgbSource.mBuffer, rgbSource.mStride, aDestY,
+  return MapRv(libyuv::ARGBToNV12(map.GetData(), map.GetStride(), aDestY,
                                   aDestStrideY, aDestUV, aDestStrideUV,
                                   aDestSize.width, aDestSize.height));
 }
