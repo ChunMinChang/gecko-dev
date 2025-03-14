@@ -7,8 +7,8 @@
 #define DOM_MEDIA_IMAGECONVERSION_H_
 
 #include "mozilla/AlreadyAddRefed.h"
-#include "nsError.h"
 #include "mozilla/gfx/Point.h"
+#include "nsError.h"
 
 namespace mozilla {
 
