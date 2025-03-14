@@ -7,6 +7,8 @@
 #define DOM_MEDIA_IMAGECONVERSION_H_
 
 #include "mozilla/AlreadyAddRefed.h"
+#include "mozilla/RefPtr.h"
+#include "mozilla/Result.h"
 #include "mozilla/gfx/Point.h"
 #include "nsError.h"
 
@@ -57,6 +59,13 @@ nsresult ConvertSRGBBufferToDisplayP3(uint8_t* aSrcBuffer,
                                       uint8_t* aDestBuffer, int aWidth,
                                       int aHeight);
 
+/**
+ * Scales the given YUV image to the given size.
+ */
+Result<RefPtr<layers::Image>, nsresult> ScaleYUVImage(layers::Image* aImage,
+                                                      gfx::IntSize aDestSize);
+
+// TODO: Add support for scaling RGB images.
 }  // namespace mozilla
 
 #endif /* DOM_MEDIA_IMAGECONVERSION_H_ */
