@@ -30,7 +30,7 @@ const char* CodecTypeStrings[] = {
     "Flac",       "AAC",  "PCM", "G722", "EndAudio", "Unknown"};
 
 nsCString EncoderConfig::ToString() const {
-  nsCString rv;
+  nsAutoCString rv;
   rv.Append(CodecTypeStrings[UnderlyingValue(mCodec)]);
   rv.AppendLiteral(mBitrateMode == BitrateMode::Constant ? " (CBR)" : " (VBR)");
   rv.AppendPrintf("%" PRIu32 "bps", mBitrate);
