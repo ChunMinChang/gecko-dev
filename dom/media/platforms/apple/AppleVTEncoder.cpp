@@ -1008,6 +1008,7 @@ RefPtr<ShutdownPromise> AppleVTEncoder::ProcessShutdown() {
   AssertOnTaskQueue();
   InvalidateSessionIfNeeded();
 
+  mIsHardwareAccelerated = false;
   mError = MediaResult(NS_ERROR_DOM_MEDIA_CANCELED, "Canceled in shutdown");
   MaybeResolveOrRejectEncodePromise();
   mError = NS_OK;
